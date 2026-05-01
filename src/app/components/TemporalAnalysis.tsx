@@ -1,0 +1,494 @@
+'use client';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+
+const API = 'http://localhost:8000';
+
+type AnyRecord = Record<string, unknown>;
+
+// ─── tiny helpers ─────────────────────────────────────────────────────────────
+function fmt(v: unknown, d = 2): string {
+  if (v === null || v === undefined) return '—';
+  const n = Number(v);
+  return isNaN(n) ? String(v) : n.toFixed(d);
+}
+
+function useFetch<T>(url: string) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      try {
+        const r = await fetch(url);
+        if (!r.ok) throw new Error(r.statusText);
+        const d: T = await r.json();
+        if (!cancelled) { setData(d); setLoading(false); }
+      } catch (e) {
+        if (!cancelled) { setError(String(e)); setLoading(false); }
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  }, [url]);
+  return { data, loading, error };
+}
+
+// ─── SVG bar chart ─────────────────────────────────────────────────────────────
+function BarChart({ data, xKey, yKey, colorMap }: {
+  data: AnyRecord[]; xKey: string; yKey: string;
+  colorMap?: Record<string, string>;
+}) {
+  const w = 500, h = 200, pad = { l: 50, r: 20, t: 20, b: 50 };
+  const uw = w - pad.l - pad.r;
+  const uh = h - pad.t - pad.b;
+  const maxY = Math.max(...data.map(d => Number(d[yKey]) || 0), 1);
+  const bw = (uw / data.length) * 0.65;
+  const COLORS = ['#3b82f6', '#14b8a6', '#f59e0b', '#a855f7', '#ef4444', '#10b981'];
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <line x1={pad.l} y1={pad.t} x2={pad.l} y2={h - pad.b} stroke="#cbd5e1" />
+      <line x1={pad.l} y1={h - pad.b} x2={w - pad.r} y2={h - pad.b} stroke="#cbd5e1" />
+      {[0, 0.25, 0.5, 0.75, 1].map(t => {
+        const y = pad.t + uh * (1 - t);
+        return (
+          <g key={t}>
+            <line x1={pad.l - 4} y1={y} x2={pad.l} y2={y} stroke="#cbd5e1" />
+            <text x={pad.l - 8} y={y + 4} textAnchor="end" fontSize={10} fill="#64748b">{fmt(maxY * t, 1)}</text>
+          </g>
+        );
+      })}
+      {data.map((d, i) => {
+        const x = pad.l + (uw / data.length) * i + (uw / data.length) * 0.175;
+        const val = Number(d[yKey]) || 0;
+        const barH = (val / maxY) * uh;
+        const color = colorMap?.[String(d[xKey])] ?? COLORS[i % COLORS.length];
+        return (
+          <g key={i}>
+            <rect x={x} y={pad.t + uh - barH} width={bw} height={barH} rx={4} fill={color} opacity={0.85} />
+            <text x={x + bw / 2} y={h - pad.b + 16} textAnchor="middle" fontSize={10} fill="#64748b">
+              {String(d[xKey]).slice(0, 14)}
+            </text>
+            <text x={x + bw / 2} y={pad.t + uh - barH - 4} textAnchor="middle" fontSize={9} fill="#64748b">{fmt(val, 1)}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── horizontal bar chart (for correlation) ────────────────────────────────────
+function HBarChart({ data, labelKey, valueKey }: { data: AnyRecord[]; labelKey: string; valueKey: string }) {
+  const w = 500, h = Math.max(160, data.length * 22 + 40), pad = { l: 130, r: 60, t: 20, b: 20 };
+  const uw = w - pad.l - pad.r;
+  const uh = h - pad.t - pad.b;
+  const maxAbs = Math.max(...data.map(d => Math.abs(Number(d[valueKey]) || 0)), 0.01);
+  const zero = pad.l + uw / 2;
+  const lh = uh / Math.max(data.length, 1);
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} style={{ width: '100%', height: 'auto', display: 'block' }}>
+      <line x1={zero} y1={pad.t} x2={zero} y2={h - pad.b} stroke="#cbd5e1" strokeDasharray="3,3" />
+      {data.map((d, i) => {
+        const val = Number(d[valueKey]) || 0;
+        const bw = (Math.abs(val) / maxAbs) * (uw / 2);
+        const y = pad.t + lh * i + lh * 0.15;
+        const bh = lh * 0.7;
+        const color = val >= 0 ? '#3b82f6' : '#ef4444';
+        return (
+          <g key={i}>
+            <text x={pad.l - 6} y={y + bh / 2 + 4} textAnchor="end" fontSize={9} fill="#64748b">
+              {String(d[labelKey]).slice(0, 16)}
+            </text>
+            <rect x={val >= 0 ? zero : zero - bw} y={y} width={bw} height={bh} rx={3} fill={color} opacity={0.8} />
+            <text x={val >= 0 ? zero + bw + 4 : zero - bw - 4} y={y + bh / 2 + 4}
+              textAnchor={val >= 0 ? 'start' : 'end'} fontSize={9} fill="#64748b">{fmt(val, 3)}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── simple data table ─────────────────────────────────────────────────────────
+function DataTable({
+  rows,
+  cols,
+  limit = 5,
+  sortKey,
+  sortDir = 'desc',
+  sortAbs = false,
+}: {
+  rows: AnyRecord[];
+  cols: string[];
+  limit?: number;
+  sortKey?: string;
+  sortDir?: 'asc' | 'desc';
+  sortAbs?: boolean;
+}) {
+  if (!rows.length) return <p style={{ color: '#64748b', fontSize: 12 }}>No data</p>;
+  const sorted = sortKey
+    ? [...rows].sort((a, b) => {
+      const av = Number(a[sortKey]);
+      const bv = Number(b[sortKey]);
+      const na = isNaN(av) ? 0 : (sortAbs ? Math.abs(av) : av);
+      const nb = isNaN(bv) ? 0 : (sortAbs ? Math.abs(bv) : bv);
+      return sortDir === 'asc' ? na - nb : nb - na;
+    })
+    : rows;
+  const shown = sorted.slice(0, limit);
+  return (
+    <div style={{ overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+        <thead>
+          <tr style={{ background: '#f8fafc' }}>
+            {cols.map(c => <th key={c} style={{ padding: '6px 10px', color: '#475569', fontWeight: 600, textAlign: 'left', borderBottom: '1px solid #e5e7eb', whiteSpace: 'nowrap' }}>{c}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((row, i) => (
+            <tr key={i} style={{ background: i % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+              {cols.map(c => (
+                <td key={c} style={{ padding: '5px 10px', color: '#0f172a', borderBottom: '1px solid #e5e7eb' }}>
+                  {typeof row[c] === 'number' ? fmt(row[c], 3) : String(row[c] ?? '—')}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ─── card wrapper ──────────────────────────────────────────────────────────────
+function Card({ title, subtitle, children, badge }: {
+  title: string; subtitle?: string; children: React.ReactNode; badge?: string;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  return (
+    <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 14, marginBottom: 20, overflow: 'hidden', boxShadow: '0 10px 24px rgba(15, 23, 42, 0.06)' }}>
+      <div style={{ padding: '14px 18px', borderBottom: collapsed ? 'none' : '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+        onClick={() => setCollapsed(c => !c)}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 15, fontWeight: 700, color: '#0f172a' }}>{title}</span>
+            {badge && <span style={{ background: '#e0f2fe', color: '#075985', fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999 }}>{badge}</span>}
+          </div>
+          {subtitle && <p style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{subtitle}</p>}
+        </div>
+        <span style={{ color: '#94a3b8', fontSize: 18 }}>{collapsed ? '▸' : '▾'}</span>
+      </div>
+      {!collapsed && <div style={{ padding: '16px 18px' }}>{children}</div>}
+    </div>
+  );
+}
+
+function LoadState({ loading, error }: { loading: boolean; error: string | null }) {
+  if (loading) return <p style={{ color: '#64748b', fontSize: 12 }}>Loading…</p>;
+  if (error) return <p style={{ color: '#ef4444', fontSize: 12 }}>Error: {error}</p>;
+  return null;
+}
+
+// ─── 4A Stability ──────────────────────────────────────────────────────────────
+function StabilitySection() {
+  const { data, loading, error } = useFetch<{ summary: AnyRecord[]; category_counts: AnyRecord[] }>(`${API}/temporal/stability`);
+  const COLOR_MAP: Record<string, string> = {
+    'Low variation (<10%)': '#10b981',
+    'Moderate variation (10–25%)': '#f59e0b',
+    'High variation (>25%)': '#ef4444',
+  };
+  return (
+    <Card title="4A · Stability Classification (CV-Based)" subtitle="Genotype yield stability by coefficient of variation" badge="ANOVA">
+      <LoadState loading={loading} error={error} />
+      {data && (
+        <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 20, alignItems: 'start' }}>
+          <div>
+            <p style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Genotype count per stability class</p>
+            <BarChart data={data.category_counts} xKey="cv_category" yKey="count" colorMap={COLOR_MAP} />
+          </div>
+          <div>
+            <p style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Summary table (CV%)</p>
+            <DataTable rows={data.summary} cols={['genotype', 'mean_yield', 'cv', 'cv_category']} sortKey="cv" />
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ─── 4B Yield Class ────────────────────────────────────────────────────────────
+function YieldClassSection() {
+  const { data, loading, error } = useFetch<{
+    thresholds: { t33: number; t66: number };
+    distribution: AnyRecord[];
+    genotype_table: AnyRecord[];
+  }>(`${API}/temporal/yield-class`);
+  const COLOR_MAP: Record<string, string> = { Low: '#ef4444', Medium: '#f59e0b', High: '#10b981' };
+  return (
+    <Card title="4B · Yield Class Distribution" subtitle="Tertile-based low / medium / high yield classes on stable genotypes">
+      <LoadState loading={loading} error={error} />
+      {data && (
+        <>
+          <div style={{ display: 'flex', gap: 16, marginBottom: 14 }}>
+            {['t33', 't66'].map(k => (
+              <div key={k} style={{ background: '#ffffff', borderRadius: 8, padding: '8px 14px', border: '1px solid #e5e7eb' }}>
+                <span style={{ color: '#64748b', fontSize: 11 }}>{k === 't33' ? 'Low / Medium threshold' : 'Medium / High threshold'}</span>
+                <strong style={{ display: 'block', color: '#2563eb', fontSize: 17, fontFamily: "'Space Grotesk', sans-serif" }}>
+                  {fmt(data.thresholds[k as 't33' | 't66'], 2)}
+                </strong>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 20, alignItems: 'start' }}>
+            <BarChart data={data.distribution} xKey="Yield_Class" yKey="count" colorMap={COLOR_MAP} />
+            <DataTable rows={data.genotype_table} cols={['genotype', 'Yield', 'Yield_Class']} sortKey="Yield" />
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── 4D Tukey ──────────────────────────────────────────────────────────────────
+function TukeySection() {
+  const { data, loading, error } = useFetch<{ tukey: AnyRecord[] }>(`${API}/temporal/tukey`);
+  return (
+    <Card title="4D · Significant Features (ANOVA)" subtitle="Features significantly different across yield classes (p < 0.05)" badge="ANOVA">
+      <LoadState loading={loading} error={error} />
+      {data && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 20, alignItems: 'start' }}>
+            <BarChart data={data.tukey.slice(0, 12)} xKey="feature" yKey="sig_count" />
+            <DataTable rows={data.tukey} cols={['feature', 'p_value', 'sig_count', 'significant_pairs']} sortKey="sig_count" />
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── 4E Correlation ────────────────────────────────────────────────────────────
+function CorrelationSection() {
+  const { data, loading, error } = useFetch<{ correlations: AnyRecord[] }>(`${API}/temporal/correlation`);
+  return (
+    <Card title="4E · Pearson / Spearman Correlation with Yield" subtitle="Top feature-yield correlations ranked by |Pearson r|">
+      <LoadState loading={loading} error={error} />
+      {data && (
+        <>
+          <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 20, alignItems: 'start' }}>
+            <HBarChart data={data.correlations} labelKey="feature" valueKey="pearson_r" />
+            <DataTable rows={data.correlations} cols={['feature', 'pearson_r', 'pearson_p', 'spearman_r', 'spearman_p']} sortKey="pearson_r" sortAbs />
+          </div>
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── 4F Growth / Senescence ────────────────────────────────────────────────────
+function GrowthSenescenceSection() {
+  const { data, loading, error } = useFetch<{ rates: AnyRecord[]; features: string[] }>(`${API}/temporal/growth-senescence`);
+  const [rateType, setRateType] = useState<'growth' | 'senescence'>('growth');
+  const [selFeature, setSelFeature] = useState<string>('');
+
+  const featureList = useMemo(() => data?.features ?? [], [data]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (featureList.length && !selFeature) { setTimeout(() => setSelFeature(featureList[0]), 0); } }, [featureList]);
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    return data.rates.filter(r => r.rate_type === rateType && r.feature === selFeature);
+  }, [data, rateType, selFeature]);
+
+  const byClass = useMemo(() => {
+    const acc: Record<string, number[]> = {};
+    filtered.forEach(r => {
+      const k = String(r.Yield_Class);
+      if (!acc[k]) acc[k] = [];
+      if (r.rate_value !== null) acc[k].push(Number(r.rate_value));
+    });
+    return Object.entries(acc).map(([Yield_Class, vals]) => ({
+      Yield_Class,
+      avg_rate: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0,
+    }));
+  }, [filtered]);
+
+  const COLOR_MAP: Record<string, string> = { Low: '#ef4444', Medium: '#f59e0b', High: '#10b981' };
+  return (
+    <Card title="4F · Growth & Senescence Rates by Yield Class" subtitle="Mean delta-VI/day grouped by class">
+      <LoadState loading={loading} error={error} />
+      {data && (
+        <>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+            {(['growth', 'senescence'] as const).map(t => (
+              <button key={t} onClick={() => setRateType(t)}
+                style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: rateType === t ? '#2563eb' : '#ffffff', borderColor: rateType === t ? '#2563eb' : '#e5e7eb', color: rateType === t ? '#ffffff' : '#0f172a' }}>
+                {t.charAt(0).toUpperCase() + t.slice(1)}
+              </button>
+            ))}
+            <select value={selFeature} onChange={e => setSelFeature(e.target.value)}
+              style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
+              {featureList.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+          <BarChart data={byClass} xKey="Yield_Class" yKey="avg_rate" colorMap={COLOR_MAP} />
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── 4G Phenology ─────────────────────────────────────────────────────────────
+function PhenologySection() {
+  const { data, loading, error } = useFetch<{ records: AnyRecord[]; features: string[]; metrics: string[] }>(`${API}/temporal/phenology`);
+  const [metric, setMetric] = useState('peak');
+  const [selFeat, setSelFeat] = useState('');
+
+  const featureList2 = useMemo(() => data?.features ?? [], [data]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (featureList2.length && !selFeat) { setTimeout(() => setSelFeat(featureList2[0]), 0); } }, [featureList2]);
+
+  const byClass = useMemo(() => {
+    if (!data) return [];
+    const filtered = data.records.filter(r => r.metric === metric && r.feature === selFeat);
+    const acc: Record<string, number[]> = {};
+    filtered.forEach(r => {
+      const k = String(r.Yield_Class);
+      if (!acc[k]) acc[k] = [];
+      if (r.value !== null) acc[k].push(Number(r.value));
+    });
+    return Object.entries(acc).map(([Yield_Class, vals]) => ({
+      Yield_Class,
+      mean_value: vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0,
+    }));
+  }, [data, metric, selFeat]);
+
+  const COLOR_MAP: Record<string, string> = { Low: '#ef4444', Medium: '#f59e0b', High: '#10b981' };
+  return (
+    <Card title="4G · Phenology Features" subtitle="Peak · Time-to-Peak · StayGreen AUC · Senescence Duration">
+      <LoadState loading={loading} error={error} />
+      {data && (
+        <>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+            <select value={metric} onChange={e => setMetric(e.target.value)}
+              style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
+              {data.metrics.map(m => <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>)}
+            </select>
+            <select value={selFeat} onChange={e => setSelFeat(e.target.value)}
+              style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
+              {featureList2.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+          <BarChart data={byClass} xKey="Yield_Class" yKey="mean_value" colorMap={COLOR_MAP} />
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── 4I Interpretation ────────────────────────────────────────────────────────
+function InterpretationSection() {
+  const { data, loading, error } = useFetch<{ interpretations: AnyRecord[] }>(`${API}/temporal/interpretation`);
+  return (
+    <Card title="4I · Feature Biological Interpretation" subtitle="Significant features and their agronomic meaning">
+      <LoadState loading={loading} error={error} />
+      {data && <DataTable rows={data.interpretations} cols={['feature', 'p_value', 'mean_high', 'mean_low', 'effect_direction', 'biological_reason']} sortKey="mean_high" />}
+    </Card>
+  );
+}
+
+// ─── 4K Outliers ──────────────────────────────────────────────────────────────
+function OutliersSection() {
+  const { data, loading, error } = useFetch<{ outliers: AnyRecord[]; heatmap: AnyRecord[]; available_yield_classes: string[] }>(`${API}/temporal/outliers`);
+  const [selClass, setSelClass] = useState<string>('all');
+
+  const filtered = useMemo(() => {
+    if (!data) return [];
+    if (selClass === 'all') return data.outliers;
+    return data.outliers.filter(r => r.Yield_Class === selClass);
+  }, [data, selClass]);
+
+  return (
+    <Card title="4K · Genotype Outlier Z-Scores (|Z| > 2)" subtitle="Features where genotypes deviate significantly from class mean">
+      <LoadState loading={loading} error={error} />
+      {data && (
+        <>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+            {['all', ...data.available_yield_classes].map(c => (
+              <button key={c} onClick={() => setSelClass(c)}
+                style={{ padding: '4px 12px', borderRadius: 8, border: '1px solid', cursor: 'pointer', fontSize: 11, fontWeight: 600, background: selClass === c ? '#2563eb' : '#ffffff', borderColor: selClass === c ? '#2563eb' : '#e5e7eb', color: selClass === c ? '#ffffff' : '#0f172a' }}>
+                {c}
+              </button>
+            ))}
+          </div>
+          <DataTable rows={filtered} cols={['genotype', 'Yield_Class', 'Feature', 'Value', 'Class_Mean', 'Z_score']} sortKey="Z_score" sortAbs />
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── 4L Category Summary ──────────────────────────────────────────────────────
+function CategorySummarySection() {
+  const { data, loading, error } = useFetch<{ category_summary: AnyRecord[]; heatmap_matrix: AnyRecord[] }>(`${API}/temporal/category-summary`);
+  return (
+    <Card title="4L · Category-Level Summary" subtitle="Yield Class × Feature Category outlier analysis">
+      <LoadState loading={loading} error={error} />
+      {data && (
+        <>
+          <DataTable rows={data.category_summary} cols={['Yield_Class', 'Feature_Category', 'Num_Genotypes', 'Num_Features', 'Mean_Abs_Z']} sortKey="Mean_Abs_Z" />
+          {data.heatmap_matrix.length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <p style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Mean |Z-score| heatmap</p>
+              <BarChart data={data.heatmap_matrix} xKey="Feature_Category" yKey="Mean_Abs_Z" />
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ─── Main Page ────────────────────────────────────────────────────────────────
+export default function TemporalAnalysis() {
+  const router = useRouter();
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'auto';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+  return (
+    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
+      {/* Top bar */}
+      <div style={{ background: '#ffffff', borderBottom: '1px solid #e5e7eb', padding: '0 24px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 20 }}>🌾</span>
+          <div>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: '#0f172a', fontSize: 14 }}>Temporal Analysis</div>
+            <div style={{ fontSize: 11, color: '#64748b' }}>SBZ Genotype Phenology — runtime computed</div>
+          </div>
+        </div>
+        <button onClick={() => router.push('/')}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, color: '#0f172a', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          ← Home
+        </button>
+      </div>
+
+      {/* Content */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
+        <StabilitySection />
+        <YieldClassSection />
+        <TukeySection />
+        <CorrelationSection />
+        <PhenologySection />
+        <InterpretationSection />
+        <OutliersSection />
+        <CategorySummarySection />
+      </div>
+    </div>
+  );
+}

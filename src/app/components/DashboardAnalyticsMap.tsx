@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { GeoJSON, Map as LeafletMap, Path } from 'leaflet';
 
 type AnalysisMode = 'feature' | 'genotype' | 'yield-variation';
@@ -138,6 +139,7 @@ const FEATURE_LABELS: Record<FeatureKey, string> = {
 
 const HOVER_COLOR = '#fbbf24';
 const GREEN_FILL = '#4ade80';
+const BACKEND_BASE_URL = 'http://localhost:8000';
 const HIDDEN_STYLE = {
   color: 'transparent',
   fillColor: 'transparent',
@@ -1061,6 +1063,27 @@ export default function DashboardAnalyticsMap() {
   const [uavExpanded, setUavExpanded] = useState(false);
   const [leftMenuExpanded, setLeftMenuExpanded] = useState(false);
   const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null);
+  const router = useRouter();
+
+  const exportTemporalTables = useCallback(async () => {
+    try {
+      const response = await fetch(`${BACKEND_BASE_URL}/temporal/export`);
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `temporal_export_${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Export failed');
+    }
+  }, []);
 
   const UAV_DATES = useMemo(() => [
     'Nov 17 2023', 'Nov 24 2023', 'Dec 01 2023', 'Dec 21 2023', 'Dec 29 2023',
@@ -1167,9 +1190,8 @@ export default function DashboardAnalyticsMap() {
       }
 
       const L = (await import('leaflet')).default;
-      const backendBaseUrl = 'http://localhost:8000';
-      const plotsUrl = `${backendBaseUrl}/samples/plots.geojson`;
-      const temporalUrl = `${backendBaseUrl}/samples/temporalDataSet.csv`;
+      const plotsUrl = `${BACKEND_BASE_URL}/samples/plots.geojson`;
+      const temporalUrl = `${BACKEND_BASE_URL}/samples/temporalDataSet.csv`;
 
       const [plotResponse, csvResponse] = await Promise.all([fetch(plotsUrl), fetch(temporalUrl)]);
 
@@ -1433,12 +1455,29 @@ export default function DashboardAnalyticsMap() {
           ].map(feature => (
             <button 
               key={feature} 
-              style={{ padding: '14px 16px', backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#0f172a', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', fontWeight: 600 }}
-              onClick={() => setComingSoonFeature(feature)}
+              style={{ padding: '14px 16px', backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#0f172a', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+              onClick={() => {
+                if (feature === 'Temporal Analysis') {
+                  router.push('/temporal');
+                  return;
+                }
+                if (feature === 'AI Chat Assistant') {
+                  router.push('/assistant');
+                  return;
+                }
+                if (feature === 'Export Tables & Data') {
+                  exportTemporalTables();
+                  return;
+                }
+                setComingSoonFeature(feature);
+              }}
               onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
               onMouseOut={e => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
             >
-              {feature}
+              <span>{feature}</span>
+              {(feature === 'Temporal Analysis' || feature === 'AI Chat Assistant' || feature === 'Export Tables & Data')
+                ? <span style={{ fontSize: 10, color: '#3b82f6', fontWeight: 700 }}>OPEN →</span>
+                : <span style={{ fontSize: 10, color: '#94a3b8' }}>SOON</span>}
             </button>
           ))}
         </div>

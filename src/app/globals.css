@@ -7,11 +7,8 @@
 html, body { height: 100%; overflow: hidden; }
 body {
   font-family: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
-  background:
-    radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 30%),
-    radial-gradient(circle at bottom right, rgba(20, 184, 166, 0.08), transparent 30%),
-    #eef2f7;
-  color: #131a2a;
+  background: #f8fafc;
+  color: #0f172a;
   font-size: 13px;
   -webkit-font-smoothing: antialiased;
 }
@@ -40,9 +37,9 @@ body {
   padding: 0 20px;
   height: 52px;
   flex-shrink: 0;
-  background: linear-gradient(90deg, #0f172a 0%, #111827 52%, #0f172a 100%);
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.18);
+  background: #ffffff;
+  border-bottom: 1px solid #e5e7eb;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
 }
 
 .db-topbar-left {
@@ -60,13 +57,13 @@ body {
   font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
   font-size: 14px;
   font-weight: 600;
-  color: #e8eaf0;
+  color: #0f172a;
   letter-spacing: -0.1px;
 }
 
 .db-meta {
   font-size: 11px;
-  color: #6b7394;
+  color: #64748b;
   margin-top: 1px;
 }
 
@@ -75,15 +72,15 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(37, 44, 64, 0.92);
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
   border-radius: 999px;
   padding: 6px 14px;
   font-size: 12px;
 }
 .db-probe-label { font-weight: 600; color: #39d353; }
-.db-probe-sep   { color: #3a4260; }
-.db-probe-exp   { color: #9ca3af; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.db-probe-sep   { color: #94a3b8; }
+.db-probe-exp   { color: #475569; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .db-probe-chip {
   display: inline-flex;
   align-items: center;
@@ -115,7 +112,7 @@ body {
   flex: 1;
   overflow: hidden;
   border-right: 1px solid #d1d5db;
-  background: #dbe4ef;
+  background: #f8fafc;
 }
 
 /* Map controls bar */
@@ -233,8 +230,8 @@ body {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.82));
-  color: #9ca3af;
+  background: #f8fafc;
+  color: #475569;
   font-size: 13px;
   z-index: 1000;
 }
@@ -245,15 +242,15 @@ body {
 }
 .db-loader-title {
   font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
-  color: #f8fafc;
+  color: #0f172a;
   font-size: 18px;
   font-weight: 700;
 }
 .db-spinner {
   width: 30px;
   height: 30px;
-  border: 3px solid rgba(255,255,255,0.1);
-  border-top-color: #39d353;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2563eb;
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -308,7 +305,7 @@ body {
 .db-leg-hint {
   margin-left: auto;
   font-style: italic;
-  color: #9ca3af;
+  color: #64748b;
 }
 
 /* ─── Sidebar ─────────────────────────────────────────────────── */
@@ -601,7 +598,7 @@ body {
 .db-mini-dot.blue { background: #1d4ed8; }
 
 .db-map-wrap .leaflet-container {
-  background: #0f172a;
+  background: #e2e8f0;
 }
 
 .db-chart-placeholder {
@@ -665,15 +662,15 @@ body {
   place-items: center;
   width: 100%;
   height: 100vh;
-  background: linear-gradient(180deg, #0f172a 0%, #111827 100%);
-  color: #d1d5db;
+  background: #f8fafc;
+  color: #64748b;
 }
 
 .spinner {
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.12);
-  border-top-color: #38bdf8;
+  border: 3px solid #e2e8f0;
+  border-top-color: #2563eb;
   border-radius: 999px;
   animation: spin 0.8s linear infinite;
   margin-bottom: 10px;
@@ -681,16 +678,16 @@ body {
 
 /* Tooltip */
 .leaflet-tooltip.map-tooltip {
-  background: #1a1f2e !important;
-  border: 1px solid #3a4260 !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
   border-radius: 4px !important;
   padding: 0 !important;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4) !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12) !important;
   color: transparent !important;
 }
 .leaflet-tooltip.map-tooltip::before {
-  border-top-color: #3a4260 !important;
+  border-top-color: #e5e7eb !important;
 }
 .tt-inner { padding: 7px 10px; }
 .tt-id  { display: block; font-size: 12px; font-weight: 600; color: #39d353; }
-.tt-exp { display: block; font-size: 11px; color: #9ca3af; margin-top: 2px; }
+.tt-exp { display: block; font-size: 11px; color: #64748b; margin-top: 2px; }
