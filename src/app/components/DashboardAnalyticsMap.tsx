@@ -12,7 +12,25 @@ type FeatureKey =
   | 'GNDVI_mean_senescence_rate'
   | 'RECI_mean_senescence_rate'
   | 'SR_mean_senescence_rate'
-  | 'NDREI_mean_senescence_rate';
+  | 'NDREI_mean_senescence_rate'
+  | 'ALS_mean'
+  | 'CIgreen_mean'
+  | 'EVI_mean'
+  | 'EXG_mean'
+  | 'LPT_70_mean'
+  | 'MSI_mean'
+  | 'MTCI_mean'
+  | 'NDCI_mean'
+  | 'NDRE_mean'
+  | 'NDVI_mean'
+  | 'NDWI_mean'
+  | 'PSRI_mean'
+  | 'SAVI_mean'
+  | 'SIPI_mean'
+  | 'WALS_mean'
+  | 'WI_mean'
+  | 'average_height_m_mean'
+  | 'fractional_cover_mean';
 
 type FeaturePalette = 'blue-green-red' | 'blue-teal-amber';
 
@@ -69,6 +87,24 @@ const FEATURE_OPTIONS: FeatureKey[] = [
   'RECI_mean_senescence_rate',
   'SR_mean_senescence_rate',
   'NDREI_mean_senescence_rate',
+  'ALS_mean',
+  'CIgreen_mean',
+  'EVI_mean',
+  'EXG_mean',
+  'LPT_70_mean',
+  'MSI_mean',
+  'MTCI_mean',
+  'NDCI_mean',
+  'NDRE_mean',
+  'NDVI_mean',
+  'NDWI_mean',
+  'PSRI_mean',
+  'SAVI_mean',
+  'SIPI_mean',
+  'WALS_mean',
+  'WI_mean',
+  'average_height_m_mean',
+  'fractional_cover_mean'
 ];
 
 const FEATURE_LABELS: Record<FeatureKey, string> = {
@@ -80,6 +116,24 @@ const FEATURE_LABELS: Record<FeatureKey, string> = {
   RECI_mean_senescence_rate: 'RECI senescence',
   SR_mean_senescence_rate: 'SR senescence',
   NDREI_mean_senescence_rate: 'NDREI senescence',
+  ALS_mean: 'ALS Mean',
+  CIgreen_mean: 'CIgreen Mean',
+  EVI_mean: 'EVI Mean',
+  EXG_mean: 'EXG Mean',
+  LPT_70_mean: 'LPT 70 Mean',
+  MSI_mean: 'MSI Mean',
+  MTCI_mean: 'MTCI Mean',
+  NDCI_mean: 'NDCI Mean',
+  NDRE_mean: 'NDRE Mean',
+  NDVI_mean: 'NDVI Mean',
+  NDWI_mean: 'NDWI Mean',
+  PSRI_mean: 'PSRI Mean',
+  SAVI_mean: 'SAVI Mean',
+  SIPI_mean: 'SIPI Mean',
+  WALS_mean: 'WALS Mean',
+  WI_mean: 'WI Mean',
+  average_height_m_mean: 'Average Height Mean',
+  fractional_cover_mean: 'Fractional Cover Mean'
 };
 
 const HOVER_COLOR = '#fbbf24';
@@ -300,17 +354,10 @@ function mergePlotData(geometry: PlotCollection, temporalRecords: TemporalRecord
 
       const properties: PlotProperties = {
         ...feature.properties,
+        ...temporal.values,
         plot_id: plotId,
         experiment: temporal.experiment || feature.properties.experiment || '',
         genotype: temporal.genotype,
-        Yield: temporal.values.Yield,
-        Max_Height: temporal.values.Max_Height,
-        fractional_cover_max_increase: temporal.values.fractional_cover_max_increase,
-        fractional_cover_max_decrease: temporal.values.fractional_cover_max_decrease,
-        GNDVI_mean_senescence_rate: temporal.values.GNDVI_mean_senescence_rate,
-        RECI_mean_senescence_rate: temporal.values.RECI_mean_senescence_rate,
-        SR_mean_senescence_rate: temporal.values.SR_mean_senescence_rate,
-        NDREI_mean_senescence_rate: temporal.values.NDREI_mean_senescence_rate,
       };
 
       return {
@@ -413,11 +460,13 @@ function FeatureBoxplot({
   feature,
   yieldThresholds,
   actions,
+  isExpanded,
 }: {
   records: PlotProperties[];
   feature: FeatureKey;
   yieldThresholds: [number, number];
   actions?: React.ReactNode;
+  isExpanded?: boolean;
 }) {
   const groups = useMemo(() => {
     const low: number[] = [];
@@ -471,9 +520,19 @@ function FeatureBoxplot({
         </div>
         {actions && <div className="db-chart-actions">{actions}</div>}
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg">
+      <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg" style={{ overflow: 'visible' }}>
         <line x1={left} y1={top} x2={left} y2={height - bottom} className="db-chart-axis" />
         <line x1={left} y1={height - bottom} x2={width - right} y2={height - bottom} className="db-chart-axis" />
+        {isExpanded && (
+          <>
+            <text x={left - 42} y={top + usableHeight / 2} transform={`rotate(-90 ${left - 42} ${top + usableHeight / 2})`} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
+              {FEATURE_LABELS[feature]}
+            </text>
+            <text x={left + (width - left - right) / 2} y={height - 2} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
+              Yield Class
+            </text>
+          </>
+        )}
         {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
           const value = minValue + (maxValue - minValue) * tick;
           const y = scaleY(value);
@@ -543,11 +602,13 @@ function ScatterPlot({
   feature,
   yieldThresholds,
   actions,
+  isExpanded,
 }: {
   records: PlotProperties[];
   feature: FeatureKey;
   yieldThresholds: [number, number];
   actions?: React.ReactNode;
+  isExpanded?: boolean;
 }) {
   const points = useMemo(() => {
     return records
@@ -630,9 +691,19 @@ function ScatterPlot({
         </div>
         {actions && <div className="db-chart-actions">{actions}</div>}
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg">
+      <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg" style={{ overflow: 'visible' }}>
         <line x1={left} y1={top} x2={left} y2={height - bottom} className="db-chart-axis" />
         <line x1={left} y1={height - bottom} x2={width - right} y2={height - bottom} className="db-chart-axis" />
+        {isExpanded && (
+          <>
+            <text x={left - 42} y={top + usableHeight / 2} transform={`rotate(-90 ${left - 42} ${top + usableHeight / 2})`} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
+              Yield (kg/ha)
+            </text>
+            <text x={left + usableWidth / 2} y={height - 2} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
+              {FEATURE_LABELS[feature]}
+            </text>
+          </>
+        )}
         {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
           const xValue = minX + (maxX - minX) * tick;
           const x = xScale(xValue);
@@ -691,9 +762,11 @@ function ScatterPlot({
 function YieldVariationBars({
   variationByGenotype,
   actions,
+  isExpanded,
 }: {
   variationByGenotype: Map<number, number>;
   actions?: React.ReactNode;
+  isExpanded?: boolean;
 }) {
   const ranked = Array.from(variationByGenotype.entries()).sort((left, right) => right[1] - left[1]);
   const topItems = ranked.slice(0, 7);
@@ -716,7 +789,17 @@ function YieldVariationBars({
         </div>
         {actions && <div className="db-chart-actions">{actions}</div>}
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg">
+      <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg" style={{ overflow: 'visible' }}>
+        {isExpanded && (
+          <>
+            <text x={left - 42} y={top + (height - top - bottom) / 2} transform={`rotate(-90 ${left - 42} ${top + (height - top - bottom) / 2})`} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
+              Genotype
+            </text>
+            <text x={left + (width - left - right) / 2} y={height - 2} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
+              Yield Variation (CV Ratio)
+            </text>
+          </>
+        )}
         {topItems.map(([genotype, variation], index) => {
           const laneTop = top + laneHeight * index;
           const laneCenter = laneTop + laneHeight / 2;
@@ -754,9 +837,11 @@ function YieldVariationBars({
 function GenotypeStabilityScatter({
   records,
   actions,
+  isExpanded,
 }: {
   records: PlotProperties[];
   actions?: React.ReactNode;
+  isExpanded?: boolean;
 }) {
   const points = useMemo<GenotypePoint[]>(() => {
     const grouped = new Map<number, number[]>();
@@ -784,8 +869,8 @@ function GenotypeStabilityScatter({
 
   const xValues = points.map((point) => point.cv);
   const yValues = points.map((point) => point.meanYield);
-  const minX = xValues.length ? Math.min(...xValues) : 0;
-  const maxX = xValues.length ? Math.max(...xValues) : 1;
+  const minX = 0;
+  const maxX = 70;
   const minY = yValues.length ? Math.min(...yValues) : 0;
   const maxY = yValues.length ? Math.max(...yValues) : 1;
   const width = 520;
@@ -814,17 +899,26 @@ function GenotypeStabilityScatter({
         </div>
         {actions && <div className="db-chart-actions">{actions}</div>}
       </div>
-      <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg">
+      <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg" style={{ overflow: 'visible' }}>
         <line x1={left} y1={top} x2={left} y2={height - bottom} className="db-chart-axis" />
         <line x1={left} y1={height - bottom} x2={width - right} y2={height - bottom} className="db-chart-axis" />
-        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
-          const xValue = minX + (maxX - minX) * tick;
+        {isExpanded && (
+          <>
+            <text x={left - 42} y={top + usableHeight / 2} transform={`rotate(-90 ${left - 42} ${top + usableHeight / 2})`} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
+              Mean Yield (kg/ha)
+            </text>
+            <text x={left + usableWidth / 2} y={height - 2} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
+              CV% (Coefficient of Variation)
+            </text>
+          </>
+        )}
+        {[0, 10, 20, 30, 40, 50, 60, 70].map((xValue) => {
           const x = xScale(xValue);
           return (
-            <g key={tick}>
+            <g key={xValue}>
               <line x1={x} y1={height - bottom} x2={x} y2={height - bottom + 6} className="db-chart-tick" />
               <text x={x} y={height - 10} textAnchor="middle" className="db-chart-label">
-                {formatNumber(xValue, 0)}
+                {xValue}
               </text>
             </g>
           );
@@ -965,6 +1059,8 @@ export default function DashboardAnalyticsMap() {
   const [hovered, setHovered] = useState<PlotProperties | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uavExpanded, setUavExpanded] = useState(false);
+  const [leftMenuExpanded, setLeftMenuExpanded] = useState(false);
+  const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null);
 
   const UAV_DATES = useMemo(() => [
     'Nov 17 2023', 'Nov 24 2023', 'Dec 01 2023', 'Dec 21 2023', 'Dec 29 2023',
@@ -1284,10 +1380,12 @@ export default function DashboardAnalyticsMap() {
     if (!layerRef.current) return;
     
     layerRef.current.eachLayer((leafletLayer) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const path = leafletLayer as any;
       if (typeof path.getLatLngs === 'function' && typeof path.setLatLngs === 'function') {
         const latlngs = path.getLatLngs();
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const shiftRecursive = (coords: any) => {
           if (Array.isArray(coords)) {
             for (let i = 0; i < coords.length; i++) {
@@ -1307,6 +1405,58 @@ export default function DashboardAnalyticsMap() {
 
   return (
     <div className="db-root dashboard-shell">
+      {comingSoonFeature && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setComingSoonFeature(null)}>
+          <div style={{ backgroundColor: '#1e293b', padding: '32px', borderRadius: '12px', textAlign: 'center', border: '1px solid #3b82f6', color: 'white', maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ marginBottom: '12px', fontSize: '24px', fontWeight: 'bold' }}>{comingSoonFeature}</h2>
+            <p style={{ color: '#94a3b8', marginBottom: '24px', lineHeight: '1.5' }}>This feature is currently under development and will be available in a future update.</p>
+            <button className="db-btn" style={{ padding: '12px 24px', fontSize: '16px' }} onClick={() => setComingSoonFeature(null)}>Got it</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ 
+        position: 'absolute', left: leftMenuExpanded ? 0 : '-280px', top: '70px', bottom: 0, width: '280px', 
+        backgroundColor: '#ffffff', borderRight: '1px solid #e5e7eb', transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        zIndex: 1000, display: 'flex', flexDirection: 'column', boxShadow: leftMenuExpanded ? '4px 0 15px rgba(15, 23, 42, 0.12)' : 'none'
+      }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb' }}>
+          <h3 style={{ margin: 0, color: '#0f172a', fontSize: '16px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Advanced Tools</h3>
+        </div>
+        <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {[
+            'Upload Reflectance Map & Shapefile',
+            'Temporal Analysis',
+            'Yield Prediction',
+            'AI Chat Assistant',
+            'Export Tables & Data'
+          ].map(feature => (
+            <button 
+              key={feature} 
+              style={{ padding: '14px 16px', backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#0f172a', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', fontWeight: 600 }}
+              onClick={() => setComingSoonFeature(feature)}
+              onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+              onMouseOut={e => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
+            >
+              {feature}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <button 
+        onClick={() => setLeftMenuExpanded(!leftMenuExpanded)}
+        style={{
+          position: 'absolute', left: leftMenuExpanded ? '280px' : 0, top: '50%', transform: 'translateY(-50%)',
+          backgroundColor: '#0f172a', color: '#ffffff', border: 'none', padding: '24px 8px', 
+          borderTopRightRadius: '8px', borderBottomRightRadius: '8px', cursor: 'pointer',
+          zIndex: 999, transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '2px 0 8px rgba(15, 23, 42, 0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}
+        title={leftMenuExpanded ? 'Close Menu' : 'Open Tools Menu'}
+      >
+        {leftMenuExpanded ? '◀' : '▶'}
+      </button>
       {expandedChart && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }} onClick={() => setExpandedChart(null)}>
           <div style={{ backgroundColor: '#0f172a', width: '100%', maxWidth: '1000px', borderRadius: '12px', padding: '24px', position: 'relative', border: '1px solid #334155' }} onClick={(e) => e.stopPropagation()}>
@@ -1555,7 +1705,7 @@ export default function DashboardAnalyticsMap() {
             {uavExpanded && (
               <div style={{ display: 'grid', gap: '8px', marginTop: '16px' }}>
                 {UAV_DATES.map((date) => (
-                  <div key={date} style={{ padding: '8px', borderBottom: '1px solid #334155', color: '#4ade80', fontSize: '14px' }}>
+                  <div key={date} style={{ padding: '8px', borderBottom: '1px solid #334155', color: '#000000', fontSize: '14px' }}>
                     {date}
                   </div>
                 ))}
