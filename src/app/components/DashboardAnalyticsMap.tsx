@@ -964,6 +964,19 @@ export default function DashboardAnalyticsMap() {
   const [plots, setPlots] = useState<PlotProperties[]>([]);
   const [hovered, setHovered] = useState<PlotProperties | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [uavExpanded, setUavExpanded] = useState(false);
+
+  const UAV_DATES = useMemo(() => [
+    'Nov 17 2023', 'Nov 24 2023', 'Dec 01 2023', 'Dec 21 2023', 'Dec 29 2023',
+    'Jan 05 2024', 'Jan 12 2024', 'Jan 19 2024', 'Jan 26 2024', 'Feb 02 2024',
+    'Feb 16 2024', 'Feb 23 2024', 'Feb 29 2024', 'Mar 29 2024', 'Apr 04 2024', 'Apr 22 2024'
+  ], []);
+
+  const expandAction = useCallback((chartId: string) => (
+    <button className="db-text-button" onClick={() => setExpandedChart(current => current === chartId ? null : chartId)}>
+      ⛶ Expand
+    </button>
+  ), []);
 
   const availableGenotypes = useMemo(() => {
     return Array.from(new Set(plots.map((plot) => plot.genotype)))
@@ -1058,7 +1071,7 @@ export default function DashboardAnalyticsMap() {
       }
 
       const L = (await import('leaflet')).default;
-      const backendBaseUrl = (process.env.NEXT_PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+      const backendBaseUrl = 'http://localhost:8000';
       const plotsUrl = `${backendBaseUrl}/samples/plots.geojson`;
       const temporalUrl = `${backendBaseUrl}/samples/temporalDataSet.csv`;
 
@@ -1073,6 +1086,20 @@ export default function DashboardAnalyticsMap() {
       }
 
       const geometry = (await plotResponse.json()) as PlotCollection;
+
+      // Automatically calibrate the GeoJSON points to align with Esri satellite imagery
+      // This default offset corrects the right/down misalignment seen on the basemap
+      const AUTO_LAT_OFFSET = 0.000016; // Shift North
+      const AUTO_LNG_OFFSET = -0.000032; // Shift West
+      
+      geometry.features.forEach(feature => {
+        feature.geometry.coordinates.forEach(ring => {
+          ring.forEach(coord => {
+            coord[0] += AUTO_LNG_OFFSET;
+            coord[1] += AUTO_LAT_OFFSET;
+          });
+        });
+      });
       const temporalText = await csvResponse.text();
       const temporalRecords = parseTemporalData(temporalText);
       const merged = mergePlotData(geometry, temporalRecords);
@@ -1253,10 +1280,44 @@ export default function DashboardAnalyticsMap() {
     setExpandedChart((current) => (current === chartId ? null : chartId));
   }, []);
 
-  const hiddenCount = plotCount - visibleCount;
+  const shiftLayer = useCallback((latOffset: number, lngOffset: number) => {
+    if (!layerRef.current) return;
+    
+    layerRef.current.eachLayer((leafletLayer) => {
+      const path = leafletLayer as any;
+      if (typeof path.getLatLngs === 'function' && typeof path.setLatLngs === 'function') {
+        const latlngs = path.getLatLngs();
+        
+        const shiftRecursive = (coords: any) => {
+          if (Array.isArray(coords)) {
+            for (let i = 0; i < coords.length; i++) {
+              shiftRecursive(coords[i]);
+            }
+          } else if (coords && typeof coords.lat === 'number' && typeof coords.lng === 'number') {
+            coords.lat += latOffset;
+            coords.lng += lngOffset;
+          }
+        };
+        
+        shiftRecursive(latlngs);
+        path.setLatLngs(latlngs);
+      }
+    });
+  }, []);
 
   return (
     <div className="db-root dashboard-shell">
+      {expandedChart && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }} onClick={() => setExpandedChart(null)}>
+          <div style={{ backgroundColor: '#0f172a', width: '100%', maxWidth: '1000px', borderRadius: '12px', padding: '24px', position: 'relative', border: '1px solid #334155' }} onClick={(e) => e.stopPropagation()}>
+            <button style={{ position: 'absolute', top: '24px', right: '24px', background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '18px', cursor: 'pointer', zIndex: 10 }} onClick={() => setExpandedChart(null)}>✕ Close</button>
+            {expandedChart === 'feature-boxplot' && <FeatureBoxplot records={visiblePlots} feature={selectedFeature} yieldThresholds={yieldThresholds} />}
+            {expandedChart === 'scatter-plot' && <ScatterPlot records={visiblePlots} feature={selectedFeature} yieldThresholds={yieldThresholds} />}
+            {expandedChart === 'yield-variation' && <YieldVariationBars variationByGenotype={variationState.variationByGenotype} />}
+            {expandedChart === 'genotype-stability' && <GenotypeStabilityScatter records={visiblePlots} />}
+          </div>
+        </div>
+      )}
       <div className="db-topbar">
         <div className="db-topbar-left">
           <span className="db-logo">🌾</span>
@@ -1264,7 +1325,7 @@ export default function DashboardAnalyticsMap() {
             <h1 className="db-title">Agricultural Plot Dashboard</h1>
             <p className="db-meta">
               {loaded
-                ? `${visibleCount}/${plotCount} eligible plots on satellite imagery`
+                ? 'Agricultural plot performance analytics and satellite mapping'
                 : loadError ?? 'Loading plot geometry and temporal data...'}
             </p>
           </div>
@@ -1286,8 +1347,6 @@ export default function DashboardAnalyticsMap() {
           <div className="db-mapbar">
             <div className="db-mapbar-left">
               <span className="db-mapbar-label">Field plots</span>
-              <span className="db-mapbar-count">{loaded ? visibleCount : '—'} visible</span>
-              <span className="db-mapbar-count muted">{plotCount} total</span>
             </div>
             <div className="db-mapbar-right">
               <button id="btn-focus" className="db-btn" onClick={handleFocus} type="button">
@@ -1370,19 +1429,30 @@ export default function DashboardAnalyticsMap() {
               </select>
             </div>
             <div className="db-stat-grid">
-              <div className="db-stat-card">
-                <span className="db-stat-label">Visible</span>
-                <strong>{visibleCount}</strong>
-              </div>
-              <div className="db-stat-card">
-                <span className="db-stat-label">Hidden</span>
-                <strong>{hiddenCount < 0 ? 0 : hiddenCount}</strong>
-              </div>
+
               <div className="db-stat-card">
                 <span className="db-stat-label">Genotypes</span>
                 <strong>{availableGenotypes.length}</strong>
               </div>
             </div>
+          </section>
+
+          <section className="db-sidebar-section">
+            <div className="db-section-head">
+              <div>
+                <p className="db-sidebar-section-title">Calibration</p>
+                <h2 className="db-section-title">Align Plots</h2>
+              </div>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px', maxWidth: '120px', margin: '0 auto', textAlign: 'center' }}>
+              <div />
+              <button className="db-btn" onClick={() => shiftLayer(0.000005, 0)} type="button">↑</button>
+              <div />
+              <button className="db-btn" onClick={() => shiftLayer(0, -0.000005)} type="button">←</button>
+              <button className="db-btn" onClick={() => shiftLayer(-0.000005, 0)} type="button">↓</button>
+              <button className="db-btn" onClick={() => shiftLayer(0, 0.000005)} type="button">→</button>
+            </div>
+            <p className="db-sidebar-section-title" style={{ textAlign: 'center', marginTop: '8px' }}>Nudge to align with satellite</p>
           </section>
 
           <section className="db-sidebar-section">
@@ -1438,15 +1508,59 @@ export default function DashboardAnalyticsMap() {
           </section>
 
           <section className="db-sidebar-section">
-            <FeatureBoxplot records={visiblePlots} feature={selectedFeature} yieldThresholds={yieldThresholds} />
+            <div className="db-section-head">
+              <div>
+                <p className="db-sidebar-section-title">Color Scheme</p>
+                <h2 className="db-section-title">Map palette</h2>
+              </div>
+            </div>
+            <div className="db-select-row">
+              <select
+                className="db-select"
+                value={featurePalette}
+                onChange={(event) => setFeaturePalette(event.target.value as FeaturePalette)}
+              >
+                <option value="blue-green-red">Blue-Green-Red (Default)</option>
+                <option value="blue-teal-amber">Blue-Teal-Amber (High Contrast)</option>
+              </select>
+            </div>
           </section>
 
           <section className="db-sidebar-section">
-            <ScatterPlot records={visiblePlots} feature={selectedFeature} yieldThresholds={yieldThresholds} />
+            <FeatureBoxplot records={visiblePlots} feature={selectedFeature} yieldThresholds={yieldThresholds} actions={expandAction('feature-boxplot')} />
+          </section>
+
+          <section className="db-sidebar-section">
+            <ScatterPlot records={visiblePlots} feature={selectedFeature} yieldThresholds={yieldThresholds} actions={expandAction('scatter-plot')} />
+          </section>
+
+          <section className="db-sidebar-section">
+            <GenotypeStabilityScatter records={visiblePlots} actions={expandAction('genotype-stability')} />
+          </section>
+
+          <section className="db-sidebar-section">
+            <YieldVariationBars variationByGenotype={variationState.variationByGenotype} actions={expandAction('yield-variation')} />
           </section>
 
           <section className="db-sidebar-section db-sidebar-section-last">
-            <YieldVariationBars variationByGenotype={variationState.variationByGenotype} />
+            <div className="db-section-head" onClick={() => setUavExpanded(!uavExpanded)} style={{ cursor: 'pointer' }}>
+              <div>
+                <h2 className="db-section-title">UAV Timestamps</h2>
+                <p className="db-sidebar-section-title">Static timeline dates</p>
+              </div>
+              <button className="db-text-button" type="button">
+                {uavExpanded ? 'Collapse' : 'Expand'}
+              </button>
+            </div>
+            {uavExpanded && (
+              <div style={{ display: 'grid', gap: '8px', marginTop: '16px' }}>
+                {UAV_DATES.map((date) => (
+                  <div key={date} style={{ padding: '8px', borderBottom: '1px solid #334155', color: '#4ade80', fontSize: '14px' }}>
+                    {date}
+                  </div>
+                ))}
+              </div>
+            )}
           </section>
         </aside>
       </div>
