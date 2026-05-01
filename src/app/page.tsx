@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 
 // Leaflet must be loaded client-side only (it references window/document)
-const MapComponent = dynamic(() => import('./components/MapComponent'), {
+const MapComponent = dynamic(() => import('./components/DashboardAnalyticsMap'), {
   ssr: false,
   loading: () => (
     <div className="map-loading-placeholder">
