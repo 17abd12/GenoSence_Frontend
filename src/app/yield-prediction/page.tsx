@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
@@ -149,7 +149,7 @@ function DataTable({ rows, cols, limit = 10 }: { rows: AnyRecord[]; cols: string
 }
 
 /* ── main ─────────────────────────────────────────────────────── */
-export default function YieldPredictionPage() {
+function YieldPredictionContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
@@ -351,5 +351,17 @@ export default function YieldPredictionPage() {
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
+  );
+}
+
+export default function YieldPredictionPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'grid', placeItems: 'center', height: '100vh', background: '#f8fafc', color: '#475569', fontSize: 16 }}>
+        <div>Loading Yield Prediction…</div>
+      </div>
+    }>
+      <YieldPredictionContent />
+    </Suspense>
   );
 }

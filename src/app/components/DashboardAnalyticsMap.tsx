@@ -140,6 +140,8 @@ const FEATURE_LABELS: Record<FeatureKey, string> = {
 const HOVER_COLOR = '#fbbf24';
 const GREEN_FILL = '#4ade80';
 const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
+console.log(BACKEND_BASE_URL);
 const HIDDEN_STYLE = {
   color: 'transparent',
   fillColor: 'transparent',
@@ -1338,7 +1340,7 @@ export default function DashboardAnalyticsMap() {
       // This default offset corrects the right/down misalignment seen on the basemap
       const AUTO_LAT_OFFSET = 0.000016; // Shift North
       const AUTO_LNG_OFFSET = -0.000032; // Shift West
-      
+
       geometry.features.forEach(feature => {
         feature.geometry.coordinates.forEach(ring => {
           ring.forEach(coord => {
@@ -1529,13 +1531,13 @@ export default function DashboardAnalyticsMap() {
 
   const shiftLayer = useCallback((latOffset: number, lngOffset: number) => {
     if (!layerRef.current) return;
-    
+
     layerRef.current.eachLayer((leafletLayer) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const path = leafletLayer as any;
       if (typeof path.getLatLngs === 'function' && typeof path.setLatLngs === 'function') {
         const latlngs = path.getLatLngs();
-        
+
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const shiftRecursive = (coords: any) => {
           if (Array.isArray(coords)) {
@@ -1547,7 +1549,7 @@ export default function DashboardAnalyticsMap() {
             coords.lng += lngOffset;
           }
         };
-        
+
         shiftRecursive(latlngs);
         path.setLatLngs(latlngs);
       }
@@ -1566,8 +1568,8 @@ export default function DashboardAnalyticsMap() {
         </div>
       )}
 
-      <div style={{ 
-        position: 'absolute', left: leftMenuExpanded ? 0 : '-280px', top: '70px', bottom: 0, width: '280px', 
+      <div style={{
+        position: 'absolute', left: leftMenuExpanded ? 0 : '-280px', top: '70px', bottom: 0, width: '280px',
         backgroundColor: '#ffffff', borderRight: '1px solid #e5e7eb', transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         zIndex: 1000, display: 'flex', flexDirection: 'column', boxShadow: leftMenuExpanded ? '4px 0 15px rgba(15, 23, 42, 0.12)' : 'none'
       }}>
@@ -1605,11 +1607,11 @@ export default function DashboardAnalyticsMap() {
         </div>
       </div>
 
-      <button 
+      <button
         onClick={() => setLeftMenuExpanded(!leftMenuExpanded)}
         style={{
           position: 'absolute', left: leftMenuExpanded ? '280px' : 0, top: '50%', transform: 'translateY(-50%)',
-          backgroundColor: '#0f172a', color: '#ffffff', border: 'none', padding: '24px 8px', 
+          backgroundColor: '#0f172a', color: '#ffffff', border: 'none', padding: '24px 8px',
           borderTopRightRadius: '8px', borderBottomRightRadius: '8px', cursor: 'pointer',
           zIndex: 999, transition: 'left 0.3s cubic-bezier(0.4, 0, 0.2, 1)', boxShadow: '2px 0 8px rgba(15, 23, 42, 0.25)',
           display: 'flex', alignItems: 'center', justifyContent: 'center'
