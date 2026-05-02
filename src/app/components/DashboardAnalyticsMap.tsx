@@ -298,8 +298,10 @@ function readFeatureValue(plot: PlotProperties, featureKey: FeatureKey) {
   return plot[featureKey];
 }
 
-function isEligibleGenotype(genotype: number) {
-  return Number.isFinite(genotype) && genotype > 3;
+function isEligibleGenotype(_genotype: number) {
+  // Always returns true — all plots (sample data and user-uploaded shapefiles) are rendered.
+  // Genotype filtering for the dropdown uses Number.isFinite in availableGenotypes.
+  return true;
 }
 
 function getYieldBand(value: number, thresholds: [number, number]): YieldBand {
@@ -352,21 +354,41 @@ function mergePlotData(geometry: PlotCollection, temporalRecords: TemporalRecord
 
   const mergedFeatures = geometry.features
     .map((feature) => {
-      const plotId = String(feature.properties.plot_id ?? '').trim();
-      const experiment = String(feature.properties.experiment ?? '').trim();
+      // Support both lowercase (sample data) and uppercase (user-uploaded shapefiles) property keys
+      const rawProps = feature.properties as Record<string, unknown>;
+      const plotId = String(
+        rawProps.plot_id ?? rawProps.PLOT_ID ?? rawProps.Plot_ID ?? ''
+      ).trim();
+      const experiment = String(rawProps.experiment ?? rawProps.EXPERIMENT ?? '').trim();
       const lookupKey = experiment || plotId;
       const temporal = temporalByPlotId.get(lookupKey) ?? temporalByPlotId.get(plotId);
 
-      if (!plotId || !temporal) {
+      if (!plotId) {
         return null;
+      }
+
+      // If there's no matching temporal record (e.g. uploaded shapefile-only),
+      // still render the plot using properties from the shapefile itself.
+      let genotype: number = Number.NaN;
+      if (temporal) {
+        genotype = temporal.genotype;
+      } else {
+        // Try to derive genotype from the shapefile properties
+        const rawGenotype = rawProps.genotype ?? rawProps.GENOTYPE;
+        if (rawGenotype !== undefined && rawGenotype !== null && rawGenotype !== '') {
+          genotype = Number(rawGenotype);
+        } else if (plotId.includes('_')) {
+          const parsed = Number(plotId.split('_').pop());
+          if (Number.isFinite(parsed)) genotype = parsed;
+        }
       }
 
       const properties: PlotProperties = {
         ...feature.properties,
-        ...temporal.values,
+        ...(temporal?.values ?? {}),
         plot_id: plotId,
-        experiment: temporal.experiment || feature.properties.experiment || '',
-        genotype: temporal.genotype,
+        experiment: temporal?.experiment || experiment || '',
+        genotype,
       };
 
       return {
@@ -394,6 +416,7 @@ function getPlotStyle(options: {
   palette: FeaturePalette;
 }) {
   const { plot, analysisMode, highlighted, selectedFeature, selectedGenotype, featureRange, genotypeVariationById, genotypeVariationRange, palette } = options;
+  // isEligibleGenotype now always returns true — all plots (sample & uploaded) are rendered
   const visible = highlighted && isEligibleGenotype(plot.genotype) && (selectedGenotype === 'all' || String(plot.genotype) === selectedGenotype);
 
   if (!visible) {
@@ -1153,16 +1176,19 @@ export default function DashboardAnalyticsMap() {
   ), []);
 
   const availableGenotypes = useMemo(() => {
+    // Exclude NaN entries — these come from uploaded shapefiles where the PLOT_ID
+    // does not end in a numeric genotype code. They are still rendered on the map
+    // but would break the genotype dropdown selector.
     return Array.from(new Set(plots.map((plot) => plot.genotype)))
-      .filter((genotype) => isEligibleGenotype(genotype))
+      .filter((genotype) => Number.isFinite(genotype))
       .sort((left, right) => left - right);
   }, [plots]);
 
   const visiblePlots = useMemo(() => {
+    // isEligibleGenotype is always true, so all plots are visible by default.
+    // When a specific genotype is selected we match by value (NaN plots stay
+    // visible under the 'all' selection but are excluded from a numeric filter).
     return plots.filter((plot) => {
-      if (!isEligibleGenotype(plot.genotype)) {
-        return false;
-      }
       if (selectedGenotype === 'all') {
         return true;
       }
