@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
+console.log('Using backend API at:', API);
 type AnyRecord = Record<string, unknown>;
 
 function fmt(v: unknown, d = 3): string {
@@ -138,7 +139,7 @@ function DataTable({ rows, cols, limit = 10 }: { rows: AnyRecord[]; cols: string
         </table>
       </div>
       {pages > 1 && (
-        <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10, justifyContent: 'center', maxWidth: '100%' }}>
           {Array.from({ length: pages }).map((_, p) => (
             <button key={p} onClick={() => setPage(p)} style={{ padding: '3px 10px', fontSize: 11, borderRadius: 6, border: '1px solid', borderColor: page === p ? '#2563eb' : '#e5e7eb', background: page === p ? '#2563eb' : '#fff', color: page === p ? '#fff' : '#374151', cursor: 'pointer' }}>{p + 1}</button>
           ))}
@@ -210,11 +211,18 @@ function YieldPredictionContent() {
 
   const [filterClass, setFilterClass] = useState<string>('all');
 
-  const filteredPredictions = useMemo(() => {
+  const allowedYieldClasses = useMemo(() => new Set(['High', 'Medium', 'Low']), []);
+
+  const visiblePredictions = useMemo(() => {
     if (!data?.predictions) return [];
-    if (filterClass === 'all') return data.predictions;
-    return data.predictions.filter(r => r.Yield_Class === filterClass);
-  }, [data, filterClass]);
+    return data.predictions.filter(row => allowedYieldClasses.has(String(row.Yield_Class)));
+  }, [data, allowedYieldClasses]);
+
+  const filteredPredictions = useMemo(() => {
+    if (!visiblePredictions.length) return [];
+    if (filterClass === 'all') return visiblePredictions;
+    return visiblePredictions.filter(r => String(r.Yield_Class) === filterClass);
+  }, [filterClass, visiblePredictions]);
 
   const pageStyle: React.CSSProperties = {
     minHeight: '100vh',
