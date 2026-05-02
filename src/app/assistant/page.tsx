@@ -23,6 +23,8 @@ export default function AssistantPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [context, setContext] = useState<string>('');
+  const [authReady, setAuthReady] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
 
   useEffect(() => {
     const stored = sessionStorage.getItem(STORAGE_KEY);
@@ -34,6 +36,28 @@ export default function AssistantPage() {
         sessionStorage.removeItem(STORAGE_KEY);
       }
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const checkAuth = async () => {
+      try {
+        const res = await fetch(`${API}/auth/me`, { credentials: 'include' });
+        if (!cancelled) {
+          setIsAuthed(res.ok);
+          setAuthReady(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsAuthed(false);
+          setAuthReady(true);
+        }
+      }
+    };
+    checkAuth();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -67,7 +91,7 @@ export default function AssistantPage() {
 
   const send = async () => {
     const trimmed = input.trim();
-    if (!trimmed || busy) return;
+    if (!trimmed || busy || !isAuthed) return;
     const userMsg: ChatMessage = { role: 'user', content: trimmed, ts: Date.now() };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
@@ -198,6 +222,16 @@ export default function AssistantPage() {
             minHeight: 520,
           }}
         >
+          {authReady && !isAuthed && (
+            <div style={{ background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 10, padding: 16, marginBottom: 12 }}>
+              <p style={{ fontSize: 12, color: '#92400e', marginBottom: 10 }}>
+                Please sign in to use the AI assistant.
+              </p>
+              <button onClick={() => router.push('/signin')} style={{ background: '#ffffff', border: '1px solid #fdba74', borderRadius: 8, color: '#92400e', padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                Sign in
+              </button>
+            </div>
+          )}
           <div
             style={{
               display: 'flex',
@@ -278,15 +312,15 @@ export default function AssistantPage() {
               <div style={{ fontSize: 11, color: '#94a3b8' }}>Enter to send, Shift+Enter for new line.</div>
               <button
                 onClick={send}
-                disabled={busy}
+                disabled={busy || !isAuthed}
                 style={{
                   padding: '8px 16px',
                   borderRadius: 10,
                   border: '1px solid #1d4ed8',
-                  background: busy ? '#94a3b8' : '#1d4ed8',
+                  background: busy || !isAuthed ? '#94a3b8' : '#1d4ed8',
                   color: '#ffffff',
                   fontWeight: 600,
-                  cursor: busy ? 'not-allowed' : 'pointer',
+                  cursor: busy || !isAuthed ? 'not-allowed' : 'pointer',
                 }}
               >
                 {busy ? 'Sending…' : 'Send'}

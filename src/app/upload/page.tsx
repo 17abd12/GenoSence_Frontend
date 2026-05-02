@@ -119,6 +119,28 @@ export default function UploadPage() {
     };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const checkAuth = async () => {
+      try {
+        const res = await fetch(`${API}/auth/me`, { credentials: 'include' });
+        if (!cancelled) {
+          setIsAuthed(res.ok);
+          setAuthReady(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setIsAuthed(false);
+          setAuthReady(true);
+        }
+      }
+    };
+    checkAuth();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Mode A – reflectance maps
   const [rgbFiles, setRgbFiles] = useState<File[]>([]);
   const [nirFiles, setNirFiles] = useState<File[]>([]);
@@ -138,10 +160,16 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<SessionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+  const [isAuthed, setIsAuthed] = useState(false);
 
   const handleBandChange = (k: string, v: number) => setBands(b => ({ ...b, [k]: v }));
 
   const handleUploadReflectance = async () => {
+    if (!isAuthed) {
+      setError('Please sign in to upload files.');
+      return;
+    }
     if (rgbFiles.length === 0 || nirFiles.length === 0 || shapefileA.length === 0) {
       setError('Please upload RGB images, NIR images, and a GeoJSON shapefile.'); return;
     }
@@ -158,7 +186,7 @@ export default function UploadPage() {
     fd.append('timestamps', tsLabels.slice(0, rgbFiles.length).join(','));
 
     try {
-      const res = await fetch(`${API}/upload/reflectance-maps`, { method: 'POST', body: fd });
+      const res = await fetch(`${API}/upload/reflectance-maps`, { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       setResult(data);
@@ -170,6 +198,10 @@ export default function UploadPage() {
   };
 
   const handleUploadCSVsOnly = async () => {
+    if (!isAuthed) {
+      setError('Please sign in to upload files.');
+      return;
+    }
     if (singleCsv.length === 0) {
       setError('Please upload your temporal feature CSV.'); return;
     }
@@ -178,7 +210,7 @@ export default function UploadPage() {
     fd.append('temporal_csv', singleCsv[0]);
     if (shapefileC.length > 0) fd.append('shapefile_json', shapefileC[0]);
     try {
-      const res = await fetch(`${API}/upload/temporal-csv-only`, { method: 'POST', body: fd });
+      const res = await fetch(`${API}/upload/temporal-csv-only`, { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       setResult(data);
@@ -191,6 +223,10 @@ export default function UploadPage() {
 
 
   const handleUploadCSVs = async () => {
+    if (!isAuthed) {
+      setError('Please sign in to upload files.');
+      return;
+    }
     if (temporalCsv.length === 0 || tsCsvs.length === 0) {
       setError('Please upload the temporal feature CSV and at least one timestamp CSV.'); return;
     }
@@ -202,7 +238,7 @@ export default function UploadPage() {
     if (shapefileB.length > 0) fd.append('shapefile_json', shapefileB[0]);
 
     try {
-      const res = await fetch(`${API}/upload/temporal-csvs`, { method: 'POST', body: fd });
+      const res = await fetch(`${API}/upload/temporal-csvs`, { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       setResult(data);
@@ -239,6 +275,16 @@ export default function UploadPage() {
       </div>
 
       <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 24px' }}>
+        {authReady && !isAuthed && (
+          <div style={{ background: '#fff7ed', border: '1px solid #fdba74', borderRadius: 10, padding: 16, marginBottom: 16 }}>
+            <p style={{ fontSize: 12, color: '#92400e', marginBottom: 10 }}>
+              Please sign in to upload files. Sample data remains available on the dashboard.
+            </p>
+            <button onClick={() => router.push('/signin')} style={{ background: '#ffffff', border: '1px solid #fdba74', borderRadius: 8, color: '#92400e', padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              Sign in
+            </button>
+          </div>
+        )}
         {/* Mode selector */}
         <div style={{ ...cardStyle, padding: 20, marginBottom: 24 }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14 }}>Choose Upload Mode</p>

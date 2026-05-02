@@ -1063,6 +1063,8 @@ export default function DashboardAnalyticsMap() {
   const [uavExpanded, setUavExpanded] = useState(false);
   const [leftMenuExpanded, setLeftMenuExpanded] = useState(false);
   const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
+  const [authReady, setAuthReady] = useState(false);
   const router = useRouter();
 
   const exportTemporalTables = useCallback(async () => {
@@ -1084,6 +1086,52 @@ export default function DashboardAnalyticsMap() {
       setLoadError(err instanceof Error ? err.message : 'Export failed');
     }
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadUser = async () => {
+      try {
+        const res = await fetch(`${BACKEND_BASE_URL}/auth/me`, { credentials: 'include' });
+        if (!res.ok) {
+          if (!cancelled) {
+            setCurrentUser(null);
+            setAuthReady(true);
+          }
+          return;
+        }
+        const data = await res.json() as { user?: { name: string; email: string } };
+        if (!cancelled) {
+          setCurrentUser(data.user ?? null);
+          setAuthReady(true);
+        }
+      } catch {
+        if (!cancelled) {
+          setCurrentUser(null);
+          setAuthReady(true);
+        }
+      }
+    };
+    loadUser();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await fetch(`${BACKEND_BASE_URL}/auth/signout`, { method: 'POST', credentials: 'include' });
+    } finally {
+      setCurrentUser(null);
+    }
+  }, []);
+
+  const requireAuth = useCallback((action: () => void) => {
+    if (!currentUser) {
+      router.push('/signin');
+      return;
+    }
+    action();
+  }, [currentUser, router]);
 
   const UAV_DATES = useMemo(() => [
     'Nov 17 2023', 'Nov 24 2023', 'Dec 01 2023', 'Dec 21 2023', 'Dec 29 2023',
@@ -1457,6 +1505,12 @@ export default function DashboardAnalyticsMap() {
               key={label}
               style={{ padding: '14px 16px', backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#0f172a', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
               onClick={() => {
+                if (label === 'Upload Reflectance Map & Shapefile' || label === 'AI Chat Assistant') {
+                  requireAuth(() => {
+                    if (route) { router.push(route); }
+                  });
+                  return;
+                }
                 if (route) { router.push(route); return; }
                 if (label === 'Export Tables & Data') { exportTemporalTables(); return; }
               }}
@@ -1515,6 +1569,19 @@ export default function DashboardAnalyticsMap() {
               <span className="db-probe-exp">{FEATURE_LABELS[selectedFeature]} {formatNumber(selectedFeatureValue, 2)}</span>
             </div>
           )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+            {!authReady ? null : currentUser ? (
+              <>
+                <span style={{ fontSize: 12, color: '#475569' }}>{currentUser.name || currentUser.email}</span>
+                <button className="db-btn" type="button" onClick={handleLogout}>Logout</button>
+              </>
+            ) : (
+              <>
+                <button className="db-btn" type="button" onClick={() => router.push('/signin')}>Sign in</button>
+                <button className="db-btn" type="button" onClick={() => router.push('/signup')}>Sign up</button>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
