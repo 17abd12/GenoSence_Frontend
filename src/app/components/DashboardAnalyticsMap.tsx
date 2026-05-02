@@ -318,8 +318,15 @@ function parseTemporalData(csvText: string) {
   return parseCsv(csvText)
     .map((row) => {
       const plotId = String(row.PLOT_ID ?? row.plot_id ?? row.Plot_ID ?? '').trim();
-      const genotype = toNumber(row.genotype);
+      let genotype = toNumber(row.genotype);
       const experiment = String(row.experiment ?? '').trim();
+
+      if (!Number.isFinite(genotype) && plotId.includes('_')) {
+        const parsed = Number(plotId.split('_').pop());
+        if (Number.isFinite(parsed)) {
+          genotype = parsed;
+        }
+      }
 
       if (!plotId || !Number.isFinite(genotype)) {
         return null;
@@ -1238,10 +1245,30 @@ export default function DashboardAnalyticsMap() {
       }
 
       const L = (await import('leaflet')).default;
-      const plotsUrl = `${BACKEND_BASE_URL}/samples/plots.geojson`;
-      const temporalUrl = `${BACKEND_BASE_URL}/samples/temporalDataSet.csv`;
+      const samplePlotsUrl = `${BACKEND_BASE_URL}/samples/plots.geojson`;
+      const sampleTemporalUrl = `${BACKEND_BASE_URL}/samples/temporalDataSet.csv`;
+      const userPlotsUrl = `${BACKEND_BASE_URL}/user/last-upload/geojson`;
+      const userTemporalUrl = `${BACKEND_BASE_URL}/user/last-upload/temporal-csv`;
 
-      const [plotResponse, csvResponse] = await Promise.all([fetch(plotsUrl), fetch(temporalUrl)]);
+      let plotResponse: Response | null = null;
+      let csvResponse: Response | null = null;
+
+      try {
+        [plotResponse, csvResponse] = await Promise.all([
+          fetch(userPlotsUrl, { credentials: 'include' }),
+          fetch(userTemporalUrl, { credentials: 'include' }),
+        ]);
+      } catch {
+        plotResponse = null;
+        csvResponse = null;
+      }
+
+      if (!plotResponse?.ok || !csvResponse?.ok) {
+        [plotResponse, csvResponse] = await Promise.all([
+          fetch(samplePlotsUrl),
+          fetch(sampleTemporalUrl),
+        ]);
+      }
 
       if (!plotResponse.ok) {
         throw new Error('Could not load plot geometry.');

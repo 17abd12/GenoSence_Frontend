@@ -456,7 +456,41 @@ export default function TemporalAnalysis() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
-  const qs = sessionId ? `?session_id=${sessionId}` : '';
+  const [effectiveSessionId, setEffectiveSessionId] = useState<string | null>(sessionId);
+  const qs = effectiveSessionId ? `?session_id=${effectiveSessionId}` : '';
+
+  useEffect(() => {
+    if (sessionId) {
+      setEffectiveSessionId(sessionId);
+      return;
+    }
+
+    let cancelled = false;
+    const loadLatest = async () => {
+      try {
+        const res = await fetch(`${API}/user/last-upload/info`, { credentials: 'include' });
+        if (!res.ok) {
+          if (!cancelled) {
+            setEffectiveSessionId(null);
+          }
+          return;
+        }
+        const data = await res.json() as { session_id?: string | null };
+        if (!cancelled) {
+          setEffectiveSessionId(data.session_id ?? null);
+        }
+      } catch {
+        if (!cancelled) {
+          setEffectiveSessionId(null);
+        }
+      }
+    };
+
+    loadLatest();
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -475,17 +509,11 @@ export default function TemporalAnalysis() {
           <div>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: '#0f172a', fontSize: 14 }}>Temporal Analysis</div>
             <div style={{ fontSize: 11, color: '#64748b' }}>
-              {sessionId ? `Session: ${sessionId.slice(0,8)}… — custom upload` : 'SBZ Genotype Phenology — runtime computed'}
+              {effectiveSessionId ? `Session: ${effectiveSessionId.slice(0,8)}… — custom upload` : 'SBZ Genotype Phenology — runtime computed'}
             </div>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-          {!sessionId && (
-            <button onClick={() => router.push('/upload')}
-              style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, color: '#2563eb', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              📂 Upload Your Data
-            </button>
-          )}
           <button onClick={() => router.push('/')}
             style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, color: '#0f172a', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             ← Home
