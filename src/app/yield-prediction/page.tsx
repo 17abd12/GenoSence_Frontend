@@ -199,9 +199,12 @@ export default function YieldPredictionPage() {
   const { data, loading, error } = useFetch<{
     predictions: AnyRecord[];
     feature_importances: AnyRecord[];
+    feature_null_summary?: AnyRecord[];
     r2: number | null;
+    n_plots: number;
     n_genotypes: number;
     model_used?: string;
+    has_actual_yield?: boolean;
     message?: string;
   }>(`${API}/yield-prediction${urlSuffix}`);
 
@@ -264,11 +267,11 @@ export default function YieldPredictionPage() {
             {/* Summary cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 }}>
               {[
+                { label: 'Plots', value: String(data.n_plots ?? data.predictions?.length ?? 0), color: '#16a34a' },
+                { label: 'Genotypes', value: String(data.n_genotypes ?? 0), color: '#ea580c' },
                 { label: 'Model R²', value: data.r2 !== null ? `${(data.r2 * 100).toFixed(1)}%` : '—', color: '#2563eb' },
-                { label: 'Genotypes', value: String(data.n_genotypes ?? data.predictions?.length ?? 0), color: '#16a34a' },
                 { label: 'Features Used', value: String(data.feature_importances?.length ?? 0), color: '#7c3aed' },
                 { label: 'Dataset', value: sessionId ? 'Custom Upload' : 'Sample Data', color: '#d97706' },
-                { label: 'Model', value: data.model_used?.startsWith('ols') ? 'OLS Fallback' : 'SVR Combined', color: '#0891b2' },
               ].map(s => (
                 <div key={s.label} style={{ background: '#ffffff', borderRadius: 12, padding: '16px 18px', boxShadow: '0 4px 16px rgba(0,0,0,0.06)', borderLeft: `4px solid ${s.color}` }}>
                   <div style={{ fontSize: 11, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px' }}>{s.label}</div>
@@ -277,17 +280,23 @@ export default function YieldPredictionPage() {
               ))}
             </div>
 
-            {data.message && !data.predictions?.length && (
+            {data.message && (
               <div style={{ background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 10, padding: 16, marginBottom: 20 }}>
                 <p style={{ color: '#92400e', fontSize: 13 }}>{data.message}</p>
+              </div>
+            )}
+            {!data.has_actual_yield && (
+              <div style={{ background: '#eff6ff', border: '1px solid #93c5fd', borderRadius: 10, padding: 16, marginBottom: 20 }}>
+                <p style={{ color: '#1e40af', fontSize: 13, fontWeight: 600 }}>No Yield column detected</p>
+                <p style={{ color: '#1e3a8a', fontSize: 12, marginTop: 4 }}>Predictions are generated using the model, but accuracy (R²) and Actual vs Predicted charts cannot be displayed.</p>
               </div>
             )}
 
             {data.predictions?.length > 0 && (
               <>
                 {/* Charts row */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 20 }}>
-                  <ScatterPred data={data.predictions} />
+                <div style={{ display: 'grid', gridTemplateColumns: data.has_actual_yield ? '1fr 1fr' : '1fr', gap: 20, marginBottom: 20 }}>
+                  {data.has_actual_yield && <ScatterPred data={data.predictions} />}
                   {data.feature_importances?.length > 0 && (
                     <HBar data={data.feature_importances.slice(0, 12)} labelKey="feature" valueKey="coefficient"
                       title="Feature Coefficients (normalised)" />
@@ -297,7 +306,7 @@ export default function YieldPredictionPage() {
                 {/* Predictions table */}
                 <div style={cardStyle}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
-                    <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Per-Genotype Predictions</h2>
+                    <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Per-Plot Predictions</h2>
                     <div style={{ display: 'flex', gap: 8 }}>
                       {['all', 'High', 'Medium', 'Low'].map(c => (
                         <button key={c} onClick={() => setFilterClass(c)} style={{
@@ -309,19 +318,31 @@ export default function YieldPredictionPage() {
                       ))}
                     </div>
                   </div>
-                  <DataTable rows={filteredPredictions} cols={['genotype', 'Yield_Class', 'actual_yield', 'predicted_yield']} />
+                  <DataTable rows={filteredPredictions} cols={['plot_id', 'genotype', 'Yield_Class', 'actual_yield', 'predicted_yield']} />
                 </div>
 
-                {/* Feature importances table */}
-                {data.feature_importances?.length > 0 && (
-                  <div style={cardStyle}>
-                    <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 14 }}>Feature Importances (Top 15)</h2>
-                    <DataTable rows={data.feature_importances} cols={['feature', 'coefficient']} limit={15} />
-                    <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 10 }}>
-                      Coefficients from normalised OLS regression. Positive = higher VI value associated with higher yield.
-                    </p>
-                  </div>
-                )}
+                {/* Bottom Row: Feature Null Summary & Importances */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                  {data.feature_null_summary && data.feature_null_summary.length > 0 && (
+                    <div style={cardStyle}>
+                      <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 14 }}>Feature Data Quality</h2>
+                      <DataTable rows={data.feature_null_summary} cols={['feature', 'null_count', 'null_pct', 'note']} limit={15} />
+                      <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 10 }}>
+                        Features with missing values are filled with column means before prediction.
+                      </p>
+                    </div>
+                  )}
+
+                  {data.feature_importances?.length > 0 && (
+                    <div style={cardStyle}>
+                      <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 14 }}>Feature Importances (Top 15)</h2>
+                      <DataTable rows={data.feature_importances} cols={['feature', 'coefficient']} limit={15} />
+                      <p style={{ fontSize: 11, color: '#94a3b8', marginTop: 10 }}>
+                        {data.model_used?.startsWith('svr') ? 'Absolute feature deviations used as proxy for SVR importance.' : 'Coefficients from normalised OLS regression.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </>

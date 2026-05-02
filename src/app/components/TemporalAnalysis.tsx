@@ -191,6 +191,15 @@ function LoadState({ loading, error }: { loading: boolean; error: string | null 
   return null;
 }
 
+function NoData({ message = 'No data available for this dataset.' }: { message?: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '20px 16px', background: '#f8fafc', borderRadius: 10, border: '1px dashed #cbd5e1' }}>
+      <span style={{ fontSize: 22 }}>📭</span>
+      <p style={{ color: '#64748b', fontSize: 13, margin: 0 }}>{message}</p>
+    </div>
+  );
+}
+
 // ─── 4A Stability ──────────────────────────────────────────────────────────────
 function StabilitySection({ qs = '' }: { qs?: string }) {
   const { data, loading, error } = useFetch<{ summary: AnyRecord[]; category_counts: AnyRecord[] }>(`${API}/temporal/stability${qs}`);
@@ -203,16 +212,20 @@ function StabilitySection({ qs = '' }: { qs?: string }) {
     <Card title="4A · Stability Classification (CV-Based)" subtitle="Genotype yield stability by coefficient of variation" badge="ANOVA">
       <LoadState loading={loading} error={error} />
       {data && (
-        <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 20, alignItems: 'start' }}>
-          <div>
-            <p style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Genotype count per stability class</p>
-            <BarChart data={data.category_counts} xKey="cv_category" yKey="count" colorMap={COLOR_MAP} />
-          </div>
-          <div>
-            <p style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Summary table (CV%)</p>
-            <DataTable rows={data.summary} cols={['genotype', 'mean_yield', 'cv', 'cv_category']} sortKey="cv" />
-          </div>
-        </div>
+        !data.category_counts?.length
+          ? <NoData message="No stability data — upload a CSV with Yield column to enable this analysis." />
+          : (
+            <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 20, alignItems: 'start' }}>
+              <div>
+                <p style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Genotype count per stability class</p>
+                <BarChart data={data.category_counts} xKey="cv_category" yKey="count" colorMap={COLOR_MAP} />
+              </div>
+              <div>
+                <p style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Summary table (CV%)</p>
+                <DataTable rows={data.summary} cols={['genotype', 'mean_yield', 'cv', 'cv_category']} sortKey="cv" />
+              </div>
+            </div>
+          )
       )}
     </Card>
   );
@@ -320,21 +333,25 @@ function GrowthSenescenceSection({ qs = '' }: { qs?: string }) {
     <Card title="4F · Growth & Senescence Rates by Yield Class" subtitle="Mean delta-VI/day grouped by class">
       <LoadState loading={loading} error={error} />
       {data && (
-        <>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-            {(['growth', 'senescence'] as const).map(t => (
-              <button key={t} onClick={() => setRateType(t)}
-                style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: rateType === t ? '#2563eb' : '#ffffff', borderColor: rateType === t ? '#2563eb' : '#e5e7eb', color: rateType === t ? '#ffffff' : '#0f172a' }}>
-                {t.charAt(0).toUpperCase() + t.slice(1)}
-              </button>
-            ))}
-            <select value={selFeature} onChange={e => setSelFeature(e.target.value)}
-              style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
-              {featureList.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </div>
-          <BarChart data={byClass} xKey="Yield_Class" yKey="avg_rate" colorMap={COLOR_MAP} />
-        </>
+        data.rates.length === 0
+          ? <NoData message="No timestamp data available — upload per-timestamp CSVs (Reflectance Maps or Temporal CSV mode) to enable growth & senescence analysis." />
+          : (
+            <>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+                {(['growth', 'senescence'] as const).map(t => (
+                  <button key={t} onClick={() => setRateType(t)}
+                    style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: rateType === t ? '#2563eb' : '#ffffff', borderColor: rateType === t ? '#2563eb' : '#e5e7eb', color: rateType === t ? '#ffffff' : '#0f172a' }}>
+                    {t.charAt(0).toUpperCase() + t.slice(1)}
+                  </button>
+                ))}
+                <select value={selFeature} onChange={e => setSelFeature(e.target.value)}
+                  style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
+                  {featureList.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+              <BarChart data={byClass} xKey="Yield_Class" yKey="avg_rate" colorMap={COLOR_MAP} />
+            </>
+          )
       )}
     </Card>
   );
@@ -370,19 +387,23 @@ function PhenologySection({ qs = '' }: { qs?: string }) {
     <Card title="4G · Phenology Features" subtitle="Peak · Time-to-Peak · StayGreen AUC · Senescence Duration">
       <LoadState loading={loading} error={error} />
       {data && (
-        <>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-            <select value={metric} onChange={e => setMetric(e.target.value)}
-              style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
-              {data.metrics.map(m => <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>)}
-            </select>
-            <select value={selFeat} onChange={e => setSelFeat(e.target.value)}
-              style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
-              {featureList2.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </div>
-          <BarChart data={byClass} xKey="Yield_Class" yKey="mean_value" colorMap={COLOR_MAP} />
-        </>
+        data.records.length === 0
+          ? <NoData message="No timestamp data available — upload per-timestamp CSVs to enable phenology analysis." />
+          : (
+            <>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
+                <select value={metric} onChange={e => setMetric(e.target.value)}
+                  style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
+                  {data.metrics.map(m => <option key={m} value={m}>{m.replace(/_/g, ' ')}</option>)}
+                </select>
+                <select value={selFeat} onChange={e => setSelFeat(e.target.value)}
+                  style={{ background: '#ffffff', color: '#0f172a', border: '1px solid #e5e7eb', borderRadius: 8, padding: '4px 10px', fontSize: 12 }}>
+                  {featureList2.map(f => <option key={f} value={f}>{f}</option>)}
+                </select>
+              </div>
+              <BarChart data={byClass} xKey="Yield_Class" yKey="mean_value" colorMap={COLOR_MAP} />
+            </>
+          )
       )}
     </Card>
   );

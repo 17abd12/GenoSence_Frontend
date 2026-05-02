@@ -802,7 +802,7 @@ function YieldVariationBars({
 }) {
   const ranked = Array.from(variationByGenotype.entries()).sort((left, right) => right[1] - left[1]);
   const topItems = ranked.slice(0, 7);
-  const maxValue = topItems.length ? Math.max(...topItems.map((entry) => entry[1])) : 1;
+  const maxValue = Math.max(0.001, topItems.length ? Math.max(...topItems.map((entry) => entry[1] || 0)) : 1);
   const width = 520;
   const height = 220;
   const left = 82;
@@ -835,8 +835,10 @@ function YieldVariationBars({
         {topItems.map(([genotype, variation], index) => {
           const laneTop = top + laneHeight * index;
           const laneCenter = laneTop + laneHeight / 2;
-          const barWidth = (variation / maxValue) * (width - left - right);
-          const shade = blueColor(variation / maxValue);
+          const safeVar = isNaN(variation) ? 0 : variation;
+          const barWidth = (safeVar / maxValue) * (width - left - right);
+          const safeBarWidth = isNaN(barWidth) ? 0 : barWidth;
+          const shade = blueColor(safeVar / maxValue);
 
           return (
             <g key={genotype}>
@@ -846,14 +848,14 @@ function YieldVariationBars({
               <rect
                 x={left}
                 y={laneCenter - barHeight / 2}
-                width={Math.max(2, barWidth)}
+                width={Math.max(2, safeBarWidth)}
                 height={barHeight}
                 rx={999}
                 className="db-chart-bar"
                 style={{ fill: shade }}
               />
-              <text x={left + barWidth + 8} y={laneCenter + 4} className="db-chart-value">
-                {formatNumber(variation, 2)}
+              <text x={left + safeBarWidth + 8} y={laneCenter + 4} className="db-chart-value">
+                {formatNumber(safeVar, 2)}
               </text>
             </g>
           );
@@ -1155,6 +1157,15 @@ export default function DashboardAnalyticsMap() {
     }
   }, []);
 
+  const handleResetData = useCallback(async () => {
+    try {
+      await fetch(`${BACKEND_BASE_URL}/user/reset-upload`, { method: 'POST', credentials: 'include' });
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to reset user data', err);
+    }
+  }, []);
+
   const requireAuth = useCallback((action: () => void) => {
     if (!currentUser) {
       router.push('/signin');
@@ -1289,11 +1300,12 @@ export default function DashboardAnalyticsMap() {
         csvResponse = null;
       }
 
-      if (!plotResponse?.ok || !csvResponse?.ok) {
-        [plotResponse, csvResponse] = await Promise.all([
-          fetch(samplePlotsUrl),
-          fetch(sampleTemporalUrl),
-        ]);
+      if (!plotResponse?.ok) {
+        plotResponse = await fetch(samplePlotsUrl);
+      }
+
+      if (!csvResponse?.ok) {
+        csvResponse = await fetch(sampleTemporalUrl);
       }
 
       if (!plotResponse.ok) {
@@ -1626,6 +1638,7 @@ export default function DashboardAnalyticsMap() {
             {!authReady ? null : currentUser ? (
               <>
                 <span style={{ fontSize: 12, color: '#475569' }}>{currentUser.name || currentUser.email}</span>
+                <button className="db-btn" type="button" onClick={handleResetData} title="Clear your uploaded data and view sample data">Load Sample Data</button>
                 <button className="db-btn" type="button" onClick={handleLogout}>Logout</button>
               </>
             ) : (

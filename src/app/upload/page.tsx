@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 const API = 'http://localhost:8000';
 
 /* ── tiny helpers ─────────────────────────────────────────────── */
-type UploadMode = 'reflectance' | 'temporal-csv' | 'csv-only';
+type UploadMode = 'reflectance' | 'temporal-csv' | 'csv-only' | 'shapefile-only';
 
 interface SessionResult {
   session_id: string;
@@ -14,6 +14,7 @@ interface SessionResult {
   timestamp_labels?: string[];
   processed_timestamps?: number;
   errors?: string[];
+  warnings?: string[];
   has_shapefile?: boolean;
   has_yield?: boolean;
   row_count?: number;
@@ -157,6 +158,11 @@ export default function UploadPage() {
   const [singleCsv, setSingleCsv] = useState<File[]>([]);
   const [shapefileC, setShapefileC] = useState<File[]>([]);
 
+  // Mode D – shapefile only
+  const [shapefileD, setShapefileD] = useState<File[]>([]);
+  const previewMapRef = useRef<HTMLDivElement>(null);
+  const previewMapInstanceRef = useRef<unknown>(null);
+
   const [uploading, setUploading] = useState(false);
   const [result, setResult] = useState<SessionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -221,6 +227,49 @@ export default function UploadPage() {
     }
   };
 
+
+  // Render preview map when a shapefile is selected in Mode D
+  useEffect(() => {
+    if (mode !== 'shapefile-only' || shapefileD.length === 0 || !previewMapRef.current) return;
+    const file = shapefileD[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const geojson = JSON.parse(e.target?.result as string);
+        const L = (await import('leaflet')).default;
+        await import('leaflet/dist/leaflet.css');
+        const container = previewMapRef.current!;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const c = container as any;
+        if (c._leaflet_id) { delete c._leaflet_id; }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if (previewMapInstanceRef.current) { (previewMapInstanceRef.current as any).remove(); previewMapInstanceRef.current = null; }
+        const map = L.map(container, { zoomControl: true, preferCanvas: true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(map);
+        const layer = L.geoJSON(geojson, { style: { color: '#2563eb', fillColor: '#3b82f6', fillOpacity: 0.35, weight: 1.5 } }).addTo(map);
+        const bounds = layer.getBounds();
+        if (bounds.isValid()) map.fitBounds(bounds, { padding: [20, 20] });
+        previewMapInstanceRef.current = map;
+      } catch { /* invalid geojson */ }
+    };
+    reader.readAsText(file);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shapefileD, mode]);
+
+  const handleUploadShapefileOnly = async () => {
+    if (!isAuthed) { setError('Please sign in to upload files.'); return; }
+    if (shapefileD.length === 0) { setError('Please upload a GeoJSON shapefile.'); return; }
+    setUploading(true); setError(null); setResult(null);
+    const fd = new FormData();
+    fd.append('shapefile_json', shapefileD[0]);
+    try {
+      const res = await fetch(`${API}/upload/shapefile-only`, { method: 'POST', body: fd, credentials: 'include' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      setResult({ ...data, message: data.message });
+    } catch (e) { setError(String(e)); }
+    finally { setUploading(false); }
+  };
 
   const handleUploadCSVs = async () => {
     if (!isAuthed) {
@@ -288,12 +337,13 @@ export default function UploadPage() {
         {/* Mode selector */}
         <div style={{ ...cardStyle, padding: 20, marginBottom: 24 }}>
           <p style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 14 }}>Choose Upload Mode</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 12 }}>
             {([
-              { id: 'csv-only', title: 'Upload Single CSV', desc: 'Simplest option: one CSV with PLOT_ID + genotype (and optionally Yield + VI features). SVR model auto-predicts Yield if missing.' },
+              { id: 'csv-only', title: 'Upload Single CSV', desc: 'One CSV with PLOT_ID + genotype (and optionally Yield + VI features). SVR model auto-predicts Yield if missing.' },
+              { id: 'shapefile-only', title: '🗺 Visualize Shapefile', desc: 'Upload a GeoJSON shapefile and instantly preview all plot polygons on an interactive map. No CSV needed.' },
               { id: 'reflectance', title: 'Reflectance Maps + Shapefile', desc: 'Upload 12 RGB & NIR reflectance maps with band settings and a GeoJSON shapefile. VI statistics computed automatically.' },
               { id: 'temporal-csv', title: 'Temporal Feature CSV + Timestamp CSVs', desc: 'Upload a temporal dataset CSV and up to 12 per-timestamp pixel CSVs. VIs computed from raw band values.' },
-            ] as const).map(opt => (
+            ] as {id: UploadMode; title: string; desc: string}[]).map(opt => (
               <button key={opt.id} onClick={() => setMode(opt.id)} style={{
                 padding: '16px 18px', textAlign: 'left', border: `2px solid ${mode === opt.id ? '#2563eb' : '#e2e8f0'}`,
                 borderRadius: 12, cursor: 'pointer', background: mode === opt.id ? '#eff6ff' : '#ffffff',
@@ -305,6 +355,31 @@ export default function UploadPage() {
             ))}
           </div>
         </div>
+
+        {/* Mode D – shapefile only */}
+        {mode === 'shapefile-only' && (
+          <div style={cardStyle}>
+            <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 18, fontWeight: 700, color: '#0f172a', marginBottom: 20 }}>
+              Visualize Shapefile on Map
+            </h2>
+            <Dropzone label="Shapefile as GeoJSON" accept=".geojson,.json" multiple={false}
+              files={shapefileD} onChange={setShapefileD}
+              hint="Upload a .geojson file — plots will appear on the preview map below." />
+            {shapefileD.length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 8 }}>Map Preview</p>
+                <div ref={previewMapRef} style={{ height: 380, borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden', background: '#f1f5f9' }} />
+              </div>
+            )}
+            <InfoBox>
+              <strong>How it works:</strong> Your shapefile polygons are rendered on a satellite/OSM map.
+              After clicking <em>Save &amp; View on Dashboard</em>, you can view the plots on the full dashboard map with alignment controls.
+            </InfoBox>
+            <button onClick={handleUploadShapefileOnly} disabled={uploading} style={primaryBtn}>
+              {uploading ? 'Uploading…' : 'Save & View on Dashboard'}
+            </button>
+          </div>
+        )}
 
         {/* Mode C – single CSV */}
         {mode === 'csv-only' && (
@@ -432,6 +507,12 @@ export default function UploadPage() {
             {result.errors && result.errors.length > 0 && (
               <div style={{ marginTop: 8 }}>
                 {result.errors.map((e, i) => <p key={i} style={{ fontSize: 11, color: '#dc2626' }}>{e}</p>)}
+              </div>
+            )}
+            {result.warnings && result.warnings.length > 0 && (
+              <div style={{ marginTop: 8, background: '#fef3c7', padding: 8, borderRadius: 6, border: '1px solid #fde68a' }}>
+                <p style={{ fontSize: 11, color: '#b45309', fontWeight: 700, marginBottom: 4 }}>Warnings:</p>
+                {result.warnings.map((w, i) => <p key={i} style={{ fontSize: 11, color: '#92400e' }}>{w}</p>)}
               </div>
             )}
             <p style={{ fontSize: 12, color: '#374151', marginTop: 8 }}>{result.message}</p>
