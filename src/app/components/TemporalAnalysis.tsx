@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const API = 'http://localhost:8000';
 
@@ -192,8 +192,8 @@ function LoadState({ loading, error }: { loading: boolean; error: string | null 
 }
 
 // ─── 4A Stability ──────────────────────────────────────────────────────────────
-function StabilitySection() {
-  const { data, loading, error } = useFetch<{ summary: AnyRecord[]; category_counts: AnyRecord[] }>(`${API}/temporal/stability`);
+function StabilitySection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ summary: AnyRecord[]; category_counts: AnyRecord[] }>(`${API}/temporal/stability${qs}`);
   const COLOR_MAP: Record<string, string> = {
     'Low variation (<10%)': '#10b981',
     'Moderate variation (10–25%)': '#f59e0b',
@@ -219,12 +219,12 @@ function StabilitySection() {
 }
 
 // ─── 4B Yield Class ────────────────────────────────────────────────────────────
-function YieldClassSection() {
+function YieldClassSection({ qs = '' }: { qs?: string }) {
   const { data, loading, error } = useFetch<{
     thresholds: { t33: number; t66: number };
     distribution: AnyRecord[];
     genotype_table: AnyRecord[];
-  }>(`${API}/temporal/yield-class`);
+  }>(`${API}/temporal/yield-class${qs}`);
   const COLOR_MAP: Record<string, string> = { Low: '#ef4444', Medium: '#f59e0b', High: '#10b981' };
   return (
     <Card title="4B · Yield Class Distribution" subtitle="Tertile-based low / medium / high yield classes on stable genotypes">
@@ -252,8 +252,8 @@ function YieldClassSection() {
 }
 
 // ─── 4D Tukey ──────────────────────────────────────────────────────────────────
-function TukeySection() {
-  const { data, loading, error } = useFetch<{ tukey: AnyRecord[] }>(`${API}/temporal/tukey`);
+function TukeySection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ tukey: AnyRecord[] }>(`${API}/temporal/tukey${qs}`);
   return (
     <Card title="4D · Significant Features (ANOVA)" subtitle="Features significantly different across yield classes (p < 0.05)" badge="ANOVA">
       <LoadState loading={loading} error={error} />
@@ -270,8 +270,8 @@ function TukeySection() {
 }
 
 // ─── 4E Correlation ────────────────────────────────────────────────────────────
-function CorrelationSection() {
-  const { data, loading, error } = useFetch<{ correlations: AnyRecord[] }>(`${API}/temporal/correlation`);
+function CorrelationSection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ correlations: AnyRecord[] }>(`${API}/temporal/correlation${qs}`);
   return (
     <Card title="4E · Pearson / Spearman Correlation with Yield" subtitle="Top feature-yield correlations ranked by |Pearson r|">
       <LoadState loading={loading} error={error} />
@@ -288,8 +288,8 @@ function CorrelationSection() {
 }
 
 // ─── 4F Growth / Senescence ────────────────────────────────────────────────────
-function GrowthSenescenceSection() {
-  const { data, loading, error } = useFetch<{ rates: AnyRecord[]; features: string[] }>(`${API}/temporal/growth-senescence`);
+function GrowthSenescenceSection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ rates: AnyRecord[]; features: string[] }>(`${API}/temporal/growth-senescence${qs}`);
   const [rateType, setRateType] = useState<'growth' | 'senescence'>('growth');
   const [selFeature, setSelFeature] = useState<string>('');
 
@@ -341,8 +341,8 @@ function GrowthSenescenceSection() {
 }
 
 // ─── 4G Phenology ─────────────────────────────────────────────────────────────
-function PhenologySection() {
-  const { data, loading, error } = useFetch<{ records: AnyRecord[]; features: string[]; metrics: string[] }>(`${API}/temporal/phenology`);
+function PhenologySection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ records: AnyRecord[]; features: string[]; metrics: string[] }>(`${API}/temporal/phenology${qs}`);
   const [metric, setMetric] = useState('peak');
   const [selFeat, setSelFeat] = useState('');
 
@@ -389,8 +389,8 @@ function PhenologySection() {
 }
 
 // ─── 4I Interpretation ────────────────────────────────────────────────────────
-function InterpretationSection() {
-  const { data, loading, error } = useFetch<{ interpretations: AnyRecord[] }>(`${API}/temporal/interpretation`);
+function InterpretationSection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ interpretations: AnyRecord[] }>(`${API}/temporal/interpretation${qs}`);
   return (
     <Card title="4I · Feature Biological Interpretation" subtitle="Significant features and their agronomic meaning">
       <LoadState loading={loading} error={error} />
@@ -400,8 +400,8 @@ function InterpretationSection() {
 }
 
 // ─── 4K Outliers ──────────────────────────────────────────────────────────────
-function OutliersSection() {
-  const { data, loading, error } = useFetch<{ outliers: AnyRecord[]; heatmap: AnyRecord[]; available_yield_classes: string[] }>(`${API}/temporal/outliers`);
+function OutliersSection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ outliers: AnyRecord[]; heatmap: AnyRecord[]; available_yield_classes: string[] }>(`${API}/temporal/outliers${qs}`);
   const [selClass, setSelClass] = useState<string>('all');
 
   const filtered = useMemo(() => {
@@ -431,8 +431,8 @@ function OutliersSection() {
 }
 
 // ─── 4L Category Summary ──────────────────────────────────────────────────────
-function CategorySummarySection() {
-  const { data, loading, error } = useFetch<{ category_summary: AnyRecord[]; heatmap_matrix: AnyRecord[] }>(`${API}/temporal/category-summary`);
+function CategorySummarySection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ category_summary: AnyRecord[]; heatmap_matrix: AnyRecord[] }>(`${API}/temporal/category-summary${qs}`);
   return (
     <Card title="4L · Category-Level Summary" subtitle="Yield Class × Feature Category outlier analysis">
       <LoadState loading={loading} error={error} />
@@ -454,6 +454,10 @@ function CategorySummarySection() {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TemporalAnalysis() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const sessionId = searchParams.get('session_id');
+  const qs = sessionId ? `?session_id=${sessionId}` : '';
+
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'auto';
@@ -461,6 +465,7 @@ export default function TemporalAnalysis() {
       document.body.style.overflow = previousOverflow;
     };
   }, []);
+
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: "'IBM Plex Sans', system-ui, sans-serif" }}>
       {/* Top bar */}
@@ -469,25 +474,35 @@ export default function TemporalAnalysis() {
           <span style={{ fontSize: 20 }}>🌾</span>
           <div>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: '#0f172a', fontSize: 14 }}>Temporal Analysis</div>
-            <div style={{ fontSize: 11, color: '#64748b' }}>SBZ Genotype Phenology — runtime computed</div>
+            <div style={{ fontSize: 11, color: '#64748b' }}>
+              {sessionId ? `Session: ${sessionId.slice(0,8)}… — custom upload` : 'SBZ Genotype Phenology — runtime computed'}
+            </div>
           </div>
         </div>
-        <button onClick={() => router.push('/')}
-          style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, color: '#0f172a', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-          ← Home
-        </button>
+        <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+          {!sessionId && (
+            <button onClick={() => router.push('/upload')}
+              style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, color: '#2563eb', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              📂 Upload Your Data
+            </button>
+          )}
+          <button onClick={() => router.push('/')}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 8, color: '#0f172a', padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            ← Home
+          </button>
+        </div>
       </div>
 
       {/* Content */}
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '28px 24px' }}>
-        <StabilitySection />
-        <YieldClassSection />
-        <TukeySection />
-        <CorrelationSection />
-        <PhenologySection />
-        <InterpretationSection />
-        <OutliersSection />
-        <CategorySummarySection />
+        <StabilitySection qs={qs} />
+        <YieldClassSection qs={qs} />
+        <TukeySection qs={qs} />
+        <CorrelationSection qs={qs} />
+        <PhenologySection qs={qs} />
+        <InterpretationSection qs={qs} />
+        <OutliersSection qs={qs} />
+        <CategorySummarySection qs={qs} />
       </div>
     </div>
   );

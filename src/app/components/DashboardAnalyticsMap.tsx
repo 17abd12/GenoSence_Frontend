@@ -1447,37 +1447,24 @@ export default function DashboardAnalyticsMap() {
         </div>
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {[
-            'Upload Reflectance Map & Shapefile',
-            'Temporal Analysis',
-            'Yield Prediction',
-            'AI Chat Assistant',
-            'Export Tables & Data'
-          ].map(feature => (
-            <button 
-              key={feature} 
+            { label: 'Upload Reflectance Map & Shapefile', route: '/upload' },
+            { label: 'Temporal Analysis', route: '/temporal' },
+            { label: 'Yield Prediction', route: '/yield-prediction' },
+            { label: 'AI Chat Assistant', route: '/assistant' },
+            { label: 'Export Tables & Data', route: null },
+          ].map(({ label, route }) => (
+            <button
+              key={label}
               style={{ padding: '14px 16px', backgroundColor: '#ffffff', border: '1px solid #e5e7eb', borderRadius: '8px', color: '#0f172a', cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
               onClick={() => {
-                if (feature === 'Temporal Analysis') {
-                  router.push('/temporal');
-                  return;
-                }
-                if (feature === 'AI Chat Assistant') {
-                  router.push('/assistant');
-                  return;
-                }
-                if (feature === 'Export Tables & Data') {
-                  exportTemporalTables();
-                  return;
-                }
-                setComingSoonFeature(feature);
+                if (route) { router.push(route); return; }
+                if (label === 'Export Tables & Data') { exportTemporalTables(); return; }
               }}
               onMouseOver={e => { e.currentTarget.style.backgroundColor = '#f8fafc'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
               onMouseOut={e => { e.currentTarget.style.backgroundColor = '#ffffff'; e.currentTarget.style.borderColor = '#e5e7eb'; }}
             >
-              <span>{feature}</span>
-              {(feature === 'Temporal Analysis' || feature === 'AI Chat Assistant' || feature === 'Export Tables & Data')
-                ? <span style={{ fontSize: 10, color: '#3b82f6', fontWeight: 700 }}>OPEN →</span>
-                : <span style={{ fontSize: 10, color: '#94a3b8' }}>SOON</span>}
+              <span>{label}</span>
+              <span style={{ fontSize: 10, color: '#3b82f6', fontWeight: 700 }}>OPEN →</span>
             </button>
           ))}
         </div>

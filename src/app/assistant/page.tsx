@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 const API = 'http://localhost:8000';
 const STORAGE_KEY = 'ai-chat-history';
@@ -16,6 +17,7 @@ type ChatResponse = {
 };
 
 export default function AssistantPage() {
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -134,8 +136,25 @@ export default function AssistantPage() {
             height: 'fit-content',
           }}
         >
-          <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 700 }}>
-            AI Chat Assistant
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontSize: 18, fontWeight: 700 }}>
+              AI Chat Assistant
+            </div>
+            <button
+              onClick={() => router.back()}
+              style={{
+                border: '1px solid #e5e7eb',
+                background: '#ffffff',
+                borderRadius: 10,
+                padding: '6px 10px',
+                fontSize: 12,
+                fontWeight: 600,
+                cursor: 'pointer',
+                color: '#0f172a',
+              }}
+            >
+              Back
+            </button>
           </div>
           <p style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
             Ask about genotypes, stability, yield class, and phenotype signals.
