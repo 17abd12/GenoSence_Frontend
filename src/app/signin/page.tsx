@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const API = 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 export default function SignInPage() {
   const router = useRouter();

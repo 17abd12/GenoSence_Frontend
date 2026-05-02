@@ -139,7 +139,7 @@ const FEATURE_LABELS: Record<FeatureKey, string> = {
 
 const HOVER_COLOR = '#fbbf24';
 const GREEN_FILL = '#4ade80';
-const BACKEND_BASE_URL = 'http://localhost:8000';
+const BACKEND_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 const HIDDEN_STYLE = {
   color: 'transparent',
   fillColor: 'transparent',
@@ -540,7 +540,10 @@ function FeatureBoxplot({
   const bottom = 40;
   const laneWidth = (width - left - right) / groups.length;
   const usableHeight = height - top - bottom;
-  const scaleY = (value: number) => top + (1 - normalize(value, minValue, maxValue)) * usableHeight;
+  const scaleY = (value: number) => {
+    const res = top + (1 - normalize(value, minValue, maxValue)) * usableHeight;
+    return isNaN(res) ? top + usableHeight : res;
+  };
   const scaleX = (index: number) => left + laneWidth * index + laneWidth / 2;
 
   return (
@@ -675,8 +678,14 @@ function ScatterPlot({
   const usableWidth = width - left - right;
   const usableHeight = height - top - bottom;
 
-  const xScale = (value: number) => left + normalize(value, minX, maxX) * usableWidth;
-  const yScale = (value: number) => top + (1 - normalize(value, minY, maxY)) * usableHeight;
+  const xScale = (value: number) => {
+    const res = left + normalize(value, minX, maxX) * usableWidth;
+    return isNaN(res) ? left : res;
+  };
+  const yScale = (value: number) => {
+    const res = top + (1 - normalize(value, minY, maxY)) * usableHeight;
+    return isNaN(res) ? top + usableHeight : res;
+  };
 
   const trendLines = ['Low', 'Medium', 'High'].map((band) => {
     const bandPoints = points.filter((point) => point.band === band);
@@ -881,6 +890,7 @@ function GenotypeStabilityScatter({
     const grouped = new Map<number, number[]>();
 
     records.forEach((record) => {
+      if (!Number.isFinite(record.Yield)) return;
       const bucket = grouped.get(record.genotype) ?? [];
       bucket.push(record.Yield);
       grouped.set(record.genotype, bucket);
@@ -915,8 +925,14 @@ function GenotypeStabilityScatter({
   const bottom = 36;
   const usableWidth = width - left - right;
   const usableHeight = height - top - bottom;
-  const xScale = (value: number) => left + normalize(value, minX, maxX) * usableWidth;
-  const yScale = (value: number) => top + (1 - normalize(value, minY, maxY)) * usableHeight;
+  const xScale = (value: number) => {
+    const res = left + normalize(value, minX, maxX) * usableWidth;
+    return isNaN(res) ? left : res;
+  };
+  const yScale = (value: number) => {
+    const res = top + (1 - normalize(value, minY, maxY)) * usableHeight;
+    return isNaN(res) ? top + usableHeight : res;
+  };
 
   const palette: Record<GenotypePoint['band'], string> = {
     Low: '#38bdf8',

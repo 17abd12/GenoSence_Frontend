@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-const API = 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 type AnyRecord = Record<string, unknown>;
 

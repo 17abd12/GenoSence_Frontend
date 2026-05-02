@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-const API = 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 const STORAGE_KEY = 'ai-chat-history';
 
 type ChatMessage = {
