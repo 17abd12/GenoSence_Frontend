@@ -273,11 +273,11 @@ function YieldPredictionContent() {
         {data && (
           <>
             {/* Summary cards */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 16, marginBottom: 24 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 }}>
               {[
                 { label: 'Plots', value: String(data.n_plots ?? data.predictions?.length ?? 0), color: '#16a34a' },
                 { label: 'Genotypes', value: String(data.n_genotypes ?? 0), color: '#ea580c' },
-                { label: 'Model R²', value: data.r2 !== null ? `${(data.r2 * 100).toFixed(1)}%` : '—', color: '#2563eb' },
+                // { label: 'Model R²', value: data.r2 !== null ? `${(data.r2 * 100).toFixed(1)}%` : '—', color: '#2563eb' },
                 { label: 'Features Used', value: String(data.feature_importances?.length ?? 0), color: '#7c3aed' },
                 { label: 'Dataset', value: sessionId ? 'Custom Upload' : 'Sample Data', color: '#d97706' },
               ].map(s => (
