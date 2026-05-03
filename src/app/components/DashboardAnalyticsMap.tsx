@@ -625,6 +625,12 @@ function FeatureBoxplot({
           );
         })}
       </svg>
+      {isExpanded && (
+        <div style={{ padding: '8px 12px', background: 'rgba(30, 41, 59, 0.5)', borderRadius: '6px', margin: '0 16px 12px', display: 'flex', justifyContent: 'center', gap: '24px', fontSize: '13px', color: '#cbd5e1' }}>
+          <span><strong style={{ color: '#fff' }}>X-axis:</strong> Yield Class</span>
+          <span><strong style={{ color: '#fff' }}>Y-axis:</strong> {FEATURE_LABELS[feature]}</span>
+        </div>
+      )}
       <div className="db-mini-legend">
         <span><i className="db-mini-dot low" />Low</span>
         <span><i className="db-mini-dot med" />Medium</span>
@@ -793,6 +799,12 @@ function ScatterPlot({
           />
         ))}
       </svg>
+      {isExpanded && (
+        <div style={{ padding: '8px 12px', background: 'rgba(30, 41, 59, 0.5)', borderRadius: '6px', margin: '0 16px 12px', display: 'flex', justifyContent: 'center', gap: '24px', fontSize: '13px', color: '#cbd5e1' }}>
+          <span><strong style={{ color: '#fff' }}>X-axis:</strong> {FEATURE_LABELS[feature]}</span>
+          <span><strong style={{ color: '#fff' }}>Y-axis:</strong> Yield (kg/ha)</span>
+        </div>
+      )}
       <div className="db-mini-legend">
         <span><i className="db-mini-dot low" />Low</span>
         <span><i className="db-mini-dot med" />Medium</span>
@@ -872,6 +884,12 @@ function YieldVariationBars({
           );
         })}
       </svg>
+      {isExpanded && (
+        <div style={{ padding: '8px 12px', background: 'rgba(30, 41, 59, 0.5)', borderRadius: '6px', margin: '0 16px 12px', display: 'flex', justifyContent: 'center', gap: '24px', fontSize: '13px', color: '#cbd5e1' }}>
+          <span><strong style={{ color: '#fff' }}>X-axis:</strong> Yield Variation (CV Ratio)</span>
+          <span><strong style={{ color: '#fff' }}>Y-axis:</strong> Genotype</span>
+        </div>
+      )}
       <div className="db-mini-legend">
         <span><i className="db-mini-dot blue" />Variation scale</span>
       </div>
@@ -913,12 +931,16 @@ function GenotypeStabilityScatter({
     });
   }, [records]);
 
-  const xValues = points.map((point) => point.cv);
-  const yValues = points.map((point) => point.meanYield);
-  const minX = 0;
-  const maxX = 70;
-  const minY = yValues.length ? Math.min(...yValues) : 0;
-  const maxY = yValues.length ? Math.max(...yValues) : 1;
+  const xValues = points.map((point) => point.meanYield);
+  const yValues = points.map((point) => point.cv);
+  const minX = xValues.length ? Math.min(...xValues) : 0;
+  const maxX = xValues.length ? Math.max(...xValues) : 1;
+  const minY = 0;
+  const maxY = 100;
+  
+  const avgYield = xValues.length ? mean(xValues) : 0;
+  const avgCV = yValues.length ? mean(yValues) : 0;
+
   const width = 520;
   const height = 230;
   const left = 54;
@@ -927,6 +949,7 @@ function GenotypeStabilityScatter({
   const bottom = 36;
   const usableWidth = width - left - right;
   const usableHeight = height - top - bottom;
+  
   const xScale = (value: number) => {
     const res = left + normalize(value, minX, maxX) * usableWidth;
     return isNaN(res) ? left : res;
@@ -947,66 +970,82 @@ function GenotypeStabilityScatter({
       <div className="db-chart-head">
         <div>
           <p className="db-chart-title">Genotype stability map</p>
-          <p className="db-chart-note">CV% vs mean yield by genotype.</p>
+          <p className="db-chart-note">CV% vs mean yield quadrant analysis.</p>
         </div>
         {actions && <div className="db-chart-actions">{actions}</div>}
       </div>
       <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg" style={{ overflow: 'visible' }}>
         <line x1={left} y1={top} x2={left} y2={height - bottom} className="db-chart-axis" />
         <line x1={left} y1={height - bottom} x2={width - right} y2={height - bottom} className="db-chart-axis" />
+        
+        {points.length > 0 && (
+          <>
+            <line x1={xScale(avgYield)} y1={top} x2={xScale(avgYield)} y2={height - bottom} style={{ stroke: '#64748b', strokeWidth: 1, strokeDasharray: '4 4' }} />
+            <line x1={left} y1={yScale(avgCV)} x2={width - right} y2={yScale(avgCV)} style={{ stroke: '#64748b', strokeWidth: 1, strokeDasharray: '4 4' }} />
+            
+            <text x={left + 6} y={top + 14} className="db-chart-label" style={{ fill: '#64748b', fontSize: '10px' }}>Poor performers</text>
+            <text x={width - right - 6} y={top + 14} textAnchor="end" className="db-chart-label" style={{ fill: '#64748b', fontSize: '10px' }}>High potential</text>
+            <text x={left + 6} y={height - bottom - 6} className="db-chart-label" style={{ fill: '#64748b', fontSize: '10px' }}>Consistent, underperforming</text>
+            <text x={width - right - 6} y={height - bottom - 6} textAnchor="end" className="db-chart-label" style={{ fill: '#38bdf8', fontSize: '10px', fontWeight: 'bold' }}>Stable Stars</text>
+          </>
+        )}
+
         {isExpanded && (
           <>
             <text x={left - 42} y={top + usableHeight / 2} transform={`rotate(-90 ${left - 42} ${top + usableHeight / 2})`} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
-              Mean Yield (kg/ha)
+              CV% (Coefficient of Variation)
             </text>
             <text x={left + usableWidth / 2} y={height - 2} textAnchor="middle" className="db-chart-label" style={{ fill: '#94a3b8', fontWeight: 'bold' }}>
-              CV% (Coefficient of Variation)
+              Mean Yield (kg/ha)
             </text>
           </>
         )}
-        {[0, 10, 20, 30, 40, 50, 60, 70].map((xValue) => {
+        
+        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
+          const xValue = minX + (maxX - minX) * tick;
           const x = xScale(xValue);
           return (
-            <g key={xValue}>
+            <g key={tick}>
               <line x1={x} y1={height - bottom} x2={x} y2={height - bottom + 6} className="db-chart-tick" />
               <text x={x} y={height - 10} textAnchor="middle" className="db-chart-label">
-                {xValue}
+                {formatNumber(xValue, 1)}
               </text>
             </g>
           );
         })}
-        {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
-          const yValue = minY + (maxY - minY) * tick;
+        
+        {[0, 20, 40, 60, 80, 100].map((yValue) => {
           const y = yScale(yValue);
           return (
-            <g key={tick}>
+            <g key={yValue}>
               <line x1={left - 6} y1={y} x2={left} y2={y} className="db-chart-tick" />
               <text x={left - 10} y={y + 4} textAnchor="end" className="db-chart-label">
-                {formatNumber(yValue, 1)}
+                {yValue}
               </text>
             </g>
           );
         })}
+        
         {points.map((point) => (
           <g key={point.genotype}>
             <circle
-              cx={xScale(point.cv)}
-              cy={yScale(point.meanYield)}
-              r={4.5}
+              cx={xScale(point.meanYield)}
+              cy={yScale(point.cv)}
+              r={5}
               className="db-chart-point"
-              style={{ fill: palette[point.band], opacity: 0.9 }}
-            />
-            <text
-              x={xScale(point.cv)}
-              y={yScale(point.meanYield) - 8}
-              textAnchor="middle"
-              className="db-chart-label"
+              style={{ fill: palette[point.band], opacity: 0.9, cursor: 'pointer' }}
             >
-              {point.genotype}
-            </text>
+              <title>{`Genotype ${point.genotype}\nYield: ${formatNumber(point.meanYield, 1)} kg/ha\nCV: ${formatNumber(point.cv, 1)}%`}</title>
+            </circle>
           </g>
         ))}
       </svg>
+      {isExpanded && (
+        <div style={{ padding: '8px 12px', background: 'rgba(30, 41, 59, 0.5)', borderRadius: '6px', margin: '0 16px 12px', display: 'flex', justifyContent: 'center', gap: '24px', fontSize: '13px', color: '#cbd5e1' }}>
+          <span><strong style={{ color: '#fff' }}>X-axis:</strong> Mean Yield (kg/ha)</span>
+          <span><strong style={{ color: '#fff' }}>Y-axis:</strong> CV% (Coefficient of Variation)</span>
+        </div>
+      )}
       <div className="db-mini-legend">
         <span><i className="db-mini-dot" style={{ background: palette.Low }} />Low variation (&lt;10%)</span>
         <span><i className="db-mini-dot" style={{ background: palette.Moderate }} />Moderate (10-25%)</span>

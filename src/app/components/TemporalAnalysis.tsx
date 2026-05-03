@@ -41,7 +41,7 @@ function BarChart({ data, xKey, yKey, colorMap }: {
   data: AnyRecord[]; xKey: string; yKey: string;
   colorMap?: Record<string, string>;
 }) {
-  const w = 500, h = 200, pad = { l: 50, r: 20, t: 20, b: 50 };
+  const w = 500, h = 240, pad = { l: 50, r: 20, t: 20, b: 90 };
   const uw = w - pad.l - pad.r;
   const uh = h - pad.t - pad.b;
   const maxY = Math.max(...data.map(d => Number(d[yKey]) || 0), 1);
@@ -68,8 +68,8 @@ function BarChart({ data, xKey, yKey, colorMap }: {
         return (
           <g key={i}>
             <rect x={x} y={pad.t + uh - barH} width={bw} height={barH} rx={4} fill={color} opacity={0.85} />
-            <text x={x + bw / 2} y={h - pad.b + 16} textAnchor="middle" fontSize={10} fill="#64748b">
-              {String(d[xKey]).slice(0, 14)}
+            <text x={x + bw / 2} y={h - pad.b + 12} textAnchor="end" fontSize={10} fill="#64748b" transform={`rotate(-45 ${x + bw / 2} ${h - pad.b + 12})`}>
+              {String(d[xKey]).length > 20 ? String(d[xKey]).slice(0, 18) + '…' : String(d[xKey])}
             </text>
             <text x={x + bw / 2} y={pad.t + uh - barH - 4} textAnchor="middle" fontSize={9} fill="#64748b">{fmt(val, 1)}</text>
           </g>
@@ -421,6 +421,80 @@ function InterpretationSection({ qs = '' }: { qs?: string }) {
 }
 
 // ─── 4K Outliers ──────────────────────────────────────────────────────────────
+function OutlierHeatmap({ data }: { data: AnyRecord[] }) {
+  if (!data || data.length === 0) return <NoData message="No outliers found" />;
+
+  const genotypes = Array.from(new Set(data.map(d => String(d.genotype)))).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  const features = Array.from(new Set(data.map(d => String(d.Feature)))).sort();
+
+  const map: Record<string, Record<string, number>> = {};
+  data.forEach(d => {
+    const g = String(d.genotype);
+    const f = String(d.Feature);
+    if (!map[g]) map[g] = {};
+    map[g][f] = Number(d.Z_score);
+  });
+
+  const maxAbsZ = Math.max(0.1, ...data.map(d => Math.abs(Number(d.Z_score))));
+
+  return (
+    <div style={{ marginTop: 26, display: 'flex', overflowX: 'auto', paddingBottom: 64, paddingRight: 16 }}>
+      {/* Y Axis (Genotypes) */}
+      <div style={{ display: 'flex', flexDirection: 'column', paddingRight: 8, paddingTop: 16, gap: 1 }}>
+        {genotypes.map(g => (
+          <div key={g} style={{ height: 20, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>
+            {g}
+          </div>
+        ))}
+        {/* Placeholder to match X axis height */}
+        <div style={{ height: 180 }}></div>
+      </div>
+
+      {/* Plot Area */}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 1, background: '#f8fafc', padding: 16, borderRadius: 4, border: '1px solid #e5e7eb' }}>
+          {genotypes.map(g => (
+            <div key={g} style={{ display: 'flex', height: 20, gap: 1 }}>
+              {features.map(f => {
+                const z = map[g]?.[f];
+                let bg = 'transparent';
+                if (z !== undefined) {
+                  const intensity = Math.min(1, Math.abs(z) / maxAbsZ);
+                  bg = z > 0 ? `rgba(220, 38, 38, ${intensity * 0.8 + 0.2})` : `rgba(37, 99, 235, ${intensity * 0.8 + 0.2})`;
+                }
+                return (
+                  <div key={f} title={`Genotype: ${g}\nFeature: ${f}\nZ-Score: ${z?.toFixed(3) || 'N/A'}`} style={{ flex: 1, minWidth: 28, height: '100%', backgroundColor: bg, borderRadius: 1 }} />
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {/* X Axis (Features) */}
+        <div style={{ display: 'flex', gap: 1, marginTop: 8, paddingLeft: 16, paddingRight: 16 }}>
+          {features.map(f => (
+            <div key={f} style={{ flex: 1, minWidth: 28, position: 'relative' }}>
+              <div style={{ position: 'absolute', transform: 'translateX(-50%) rotate(-45deg)', transformOrigin: 'top center', fontSize: 10, color: '#64748b', whiteSpace: 'nowrap', top: 0, left: '50%' }}>
+                {f.length > 25 ? f.slice(0, 23) + '…' : f}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Color Scale Legend */}
+      <div style={{ marginLeft: 32, display: 'flex', alignItems: 'center', height: Math.max(100, genotypes.length * 16) }}>
+        <div style={{ height: '100%', width: 12, background: 'linear-gradient(to top, rgba(37, 99, 235, 1), rgba(37, 99, 235, 0.2) 45%, transparent 50%, rgba(220, 38, 38, 0.2) 55%, rgba(220, 38, 38, 1))', borderRadius: 2 }}></div>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', marginLeft: 8, fontSize: 10, color: '#64748b' }}>
+          <span>{maxAbsZ.toFixed(1)}</span>
+          <span>0.0</span>
+          <span>-{maxAbsZ.toFixed(1)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function OutliersSection({ qs = '' }: { qs?: string }) {
   const { data, loading, error } = useFetch<{ outliers: AnyRecord[]; heatmap: AnyRecord[]; available_yield_classes: string[] }>(`${API}/temporal/outliers${qs}`);
   const [selClass, setSelClass] = useState<string>('all');
@@ -444,10 +518,92 @@ function OutliersSection({ qs = '' }: { qs?: string }) {
               </button>
             ))}
           </div>
-          <DataTable rows={filtered} cols={['genotype', 'Yield_Class', 'Feature', 'Value', 'Class_Mean', 'Z_score']} sortKey="Z_score" sortAbs />
+          <OutlierHeatmap data={filtered} />
         </>
       )}
     </Card>
+  );
+}
+
+function HeatmapTable({ data }: { data: AnyRecord[] }) {
+  if (!data || data.length === 0) return null;
+
+  // Pivot data: Feature_Category vs Yield_Class
+  const rowsMap: Record<string, Record<string, number>> = {};
+  const yieldClasses = new Set<string>();
+
+  data.forEach(d => {
+    const fc = String(d.Feature_Category);
+    const yc = String(d.Yield_Class);
+    const z = Number(d.Mean_Abs_Z);
+    if (!rowsMap[fc]) rowsMap[fc] = {};
+    rowsMap[fc][yc] = z;
+    yieldClasses.add(yc);
+  });
+
+  const yLabels = Object.keys(rowsMap).sort();
+  const xLabels = ['High', 'Medium', 'Low'].filter(c => yieldClasses.has(c));
+  if (xLabels.length === 0) Array.from(yieldClasses).forEach(c => xLabels.push(c));
+
+  const maxZ = Math.max(0.01, ...data.map(d => Number(d.Mean_Abs_Z) || 0));
+
+  return (
+    <div style={{ marginTop: 16, display: 'flex', overflowX: 'auto', paddingBottom: 16 }}>
+      {/* Y Axis Title */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30 }}>
+        <div style={{ transform: 'rotate(-90deg)', fontSize: 11, color: '#64748b', fontWeight: 600, letterSpacing: 0.5, whiteSpace: 'nowrap' }}>
+          Feature_Category
+        </div>
+      </div>
+
+      {/* Y Axis Labels */}
+      <div style={{ display: 'flex', flexDirection: 'column', paddingRight: 12, justifyContent: 'flex-start', gap: 2 }}>
+        {yLabels.map((y, i) => (
+          <div key={`${y}-${i}`} style={{ height: 32, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', fontSize: 11, color: '#64748b' }}>
+            {y}
+          </div>
+        ))}
+      </div>
+
+      {/* Heatmap Grid */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'flex', flex: 1, flexDirection: 'column', gap: 2 }}>
+          {yLabels.map((y, i) => (
+            <div key={`row-${i}`} style={{ display: 'flex', height: 32, gap: 2 }}>
+              {xLabels.map(col => {
+                const val = rowsMap[y][col];
+                const isVal = val !== undefined && !isNaN(val);
+                const intensity = isVal ? Math.min(1, val / maxZ) : 0;
+                const bgColor = isVal ? `rgba(220, 38, 38, ${intensity * 0.85 + 0.15})` : '#ffffff';
+                const color = intensity > 0.4 ? '#fff' : '#1e293b';
+                return (
+                  <div key={col} title={`${y} - ${col}: ${isVal ? val.toFixed(2) : 'N/A'}`} style={{ flex: 1, backgroundColor: bgColor, color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 500, borderRadius: 2, minWidth: 80, border: isVal ? 'none' : '1px solid #e5e7eb' }}>
+                    {isVal ? val.toFixed(2) : ''}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        {/* X Axis Labels */}
+        <div style={{ display: 'flex', gap: 2, marginTop: 8 }}>
+          {xLabels.map(col => (
+            <div key={col} style={{ flex: 1, textAlign: 'center', fontSize: 11, color: '#64748b' }}>
+              {col}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Color Scale Legend */}
+      <div style={{ marginLeft: 24, display: 'flex', alignItems: 'center' }}>
+        <div style={{ height: '100%', minHeight: 120, width: 12, background: 'linear-gradient(to top, rgba(220, 38, 38, 0.1), rgba(220, 38, 38, 1))', borderRadius: 2 }}></div>
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%', minHeight: 120, marginLeft: 6, fontSize: 10, color: '#64748b' }}>
+          <span>{maxZ.toFixed(1)}</span>
+          <span style={{ paddingBottom: 28 }}>0.0</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -461,9 +617,9 @@ function CategorySummarySection({ qs = '' }: { qs?: string }) {
         <>
           <DataTable rows={data.category_summary} cols={['Yield_Class', 'Feature_Category', 'Num_Genotypes', 'Num_Features', 'Mean_Abs_Z']} sortKey="Mean_Abs_Z" />
           {data.heatmap_matrix.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              <p style={{ fontSize: 11, color: '#64748b', marginBottom: 8 }}>Mean |Z-score| heatmap</p>
-              <BarChart data={data.heatmap_matrix} xKey="Feature_Category" yKey="Mean_Abs_Z" />
+            <div style={{ marginTop: 24 }}>
+              <p style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginBottom: 8 }}>Feature Category × Yield Class — Mean |Z|</p>
+              <HeatmapTable data={data.heatmap_matrix} />
             </div>
           )}
         </>
@@ -530,7 +686,7 @@ export default function TemporalAnalysis() {
           <div>
             <div style={{ fontFamily: "'Space Grotesk', sans-serif", fontWeight: 700, color: '#0f172a', fontSize: 14 }}>Temporal Analysis</div>
             <div style={{ fontSize: 11, color: '#64748b' }}>
-              {effectiveSessionId ? `Session: ${effectiveSessionId.slice(0,8)}… — custom upload` : 'SBZ Genotype Phenology — runtime computed'}
+              {effectiveSessionId ? `Session: ${effectiveSessionId.slice(0, 8)}… — custom upload` : 'SBZ Genotype Phenology — runtime computed'}
             </div>
           </div>
         </div>
