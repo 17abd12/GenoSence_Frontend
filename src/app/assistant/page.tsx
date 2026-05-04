@@ -47,7 +47,16 @@ export default function AssistantPage() {
     let cancelled = false;
     const checkAuth = async () => {
       try {
-        const res = await fetch(`${API}/auth/me`, { credentials: 'include' });
+        const headers: Record<string, string> = {};
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        const res = await fetch(`${API}/auth/me`, { 
+          credentials: 'include',
+          headers: Object.keys(headers).length > 0 ? headers : undefined,
+        });
         if (!cancelled) {
           setIsAuthed(res.ok);
           setAuthReady(true);
@@ -103,6 +112,12 @@ export default function AssistantPage() {
     setBusy(true);
     setError(null);
     try {
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       const res = await fetch(`${API}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useGoogleLogin } from '@react-oauth/google';
 
-const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+const API = process.env.NEXT_PUBLIC_BACKEND_URL ;
 
 export default function SignUpPage() {
   const router = useRouter();
