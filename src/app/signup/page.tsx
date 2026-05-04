@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useGoogleLogin } from '@react-oauth/google';
 
 const API = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
@@ -12,6 +13,39 @@ export default function SignUpPage() {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const startGoogleSignUp = useGoogleLogin({
+    flow: 'implicit',
+    ux_mode: 'popup',
+    onSuccess: async tokenResponse => {
+      if (!tokenResponse.access_token) {
+        setError('Google sign up failed. No access token returned.');
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API}/auth/google-signup`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ token: tokenResponse.access_token }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.detail || 'Google sign up failed');
+        }
+        router.push('/');
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Google sign up failed');
+      } finally {
+        setBusy(false);
+      }
+    },
+    onError: () => {
+      setError('Google sign up failed. Please try again.');
+    },
+  });
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -50,6 +84,40 @@ export default function SignUpPage() {
 
       <div style={{ maxWidth: 420, margin: '0 auto', padding: '40px 20px' }}>
         <div style={{ background: '#ffffff', borderRadius: 16, padding: 28, border: '1px solid #e5e7eb', boxShadow: '0 12px 32px rgba(15, 23, 42, 0.08)' }}>
+          {/* Google OAuth Section */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 12, textAlign: 'center' }}>
+              Sign up with Google
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center' }}>
+              <button
+                type="button"
+                onClick={() => startGoogleSignUp()}
+                disabled={busy}
+                style={{
+                  border: '1px solid #d1d5db',
+                  background: '#ffffff',
+                  color: '#111827',
+                  borderRadius: 9999,
+                  padding: '10px 18px',
+                  fontWeight: 600,
+                  cursor: busy ? 'not-allowed' : 'pointer',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.06)',
+                }}
+              >
+                {busy ? 'Creating...' : 'Sign up with Google'}
+              </button>
+            </div>
+          </div>
+
+          {/* Divider */}
+          <div style={{ display: 'flex', alignItems: 'center', margin: '20px 0', gap: 12 }}>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }}></div>
+            <span style={{ fontSize: 12, color: '#94a3b8', fontWeight: 500 }}>Or continue with email</span>
+            <div style={{ flex: 1, height: 1, background: '#e5e7eb' }}></div>
+          </div>
+
+          {/* Email/Password Form */}
           <form onSubmit={handleSubmit} style={{ display: 'grid', gap: 14 }}>
             <label style={{ fontSize: 12, fontWeight: 600, color: '#475569' }}>
               Name

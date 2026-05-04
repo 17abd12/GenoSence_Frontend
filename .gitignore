@@ -9,6 +9,7 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+package-lock.json
 
 # testing
 /coverage
@@ -39,3 +40,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+/__tests__
+test-results*.json
+test_reports/
+jest.config.js
+jest.setup.js
+test-results-home.json
+test-results-latest.json
+test-results-layout.json
