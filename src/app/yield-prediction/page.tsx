@@ -209,20 +209,33 @@ function YieldPredictionContent() {
     message?: string;
   }>(`${API}/yield-prediction${urlSuffix}`);
 
+  useEffect(() => {
+    if (data) {
+      console.log('yield-prediction response', data);
+    }
+  }, [data]);
+
   const [filterClass, setFilterClass] = useState<string>('all');
 
-  const allowedYieldClasses = useMemo(() => new Set(['High', 'Medium', 'Low']), []);
+  const allowedYieldClasses = useMemo(() => {
+    if (!data?.has_actual_yield) {
+      return new Set(['High', 'Medium', 'Low', 'Unknown']);
+    }
+    return new Set(['High', 'Medium', 'Low']);
+  }, [data?.has_actual_yield]);
 
   const visiblePredictions = useMemo(() => {
     if (!data?.predictions) return [];
+    if (!data.has_actual_yield) return data.predictions;
     return data.predictions.filter(row => allowedYieldClasses.has(String(row.Yield_Class)));
   }, [data, allowedYieldClasses]);
 
   const filteredPredictions = useMemo(() => {
     if (!visiblePredictions.length) return [];
+    if (!data?.has_actual_yield) return visiblePredictions;
     if (filterClass === 'all') return visiblePredictions;
     return visiblePredictions.filter(r => String(r.Yield_Class) === filterClass);
-  }, [filterClass, visiblePredictions]);
+  }, [filterClass, visiblePredictions, data?.has_actual_yield]);
 
   const pageStyle: React.CSSProperties = {
     minHeight: '100vh',
@@ -316,7 +329,7 @@ function YieldPredictionContent() {
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
                     <h2 style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Per-Plot Predictions</h2>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      {['all', 'High', 'Medium', 'Low'].map(c => (
+                      {(data?.has_actual_yield ? ['all', 'High', 'Medium', 'Low'] : ['all', 'Unknown']).map(c => (
                         <button key={c} onClick={() => setFilterClass(c)} style={{
                           padding: '4px 12px', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer',
                           border: `1px solid ${filterClass === c ? '#2563eb' : '#e5e7eb'}`,
