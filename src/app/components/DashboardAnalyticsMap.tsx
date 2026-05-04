@@ -1148,12 +1148,38 @@ function TimeSeriesLineChart({
   isExpanded?: boolean;
 }) {
   const plots = useMemo(() => {
-    if (selectedGenotype === 'all') return [];
     const baseFeature = selectedFeature.replace('_mean', '');
-    return seriesData.filter((d) => String(d.genotype) === selectedGenotype && d.feature === baseFeature);
+    const byGenotype = selectedGenotype === 'all'
+      ? seriesData
+      : seriesData.filter((d) => String(d.genotype) === selectedGenotype);
+    const matching = byGenotype.filter((d) => d.feature === baseFeature);
+    if (matching.length > 0) {
+      return matching;
+    }
+    // Fallback: use first available feature for this genotype
+    return byGenotype.length > 0 ? byGenotype.filter((d) => d.feature === byGenotype[0].feature) : [];
   }, [seriesData, selectedGenotype, selectedFeature]);
 
-  if (selectedGenotype === 'all' || plots.length === 0) {
+  const displayPlots = useMemo(() => {
+    if (selectedGenotype !== 'all') {
+      return plots;
+    }
+    if (plots.length === 0) {
+      return [];
+    }
+    const maxLen = Math.max(...plots.map((p) => p.values?.length ?? 0), 0);
+    const averaged = Array.from({ length: maxLen }).map((_, idx) => {
+      const vals = plots
+        .map((p) => p.values?.[idx])
+        .filter((v: number | null | undefined) => v !== null && v !== undefined && !Number.isNaN(v));
+      if (vals.length === 0) return null;
+      const sum = vals.reduce((acc, v) => acc + v, 0);
+      return sum / vals.length;
+    });
+    return [{ plot_id: 'all', genotype: 'all', values: averaged }];
+  }, [plots, selectedGenotype]);
+
+  if (displayPlots.length === 0) {
     return (
       <div className="db-chart-card">
         <div className="db-chart-head">
@@ -1163,13 +1189,13 @@ function TimeSeriesLineChart({
           </div>
         </div>
         <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 13, textAlign: 'center', padding: '0 20px' }}>
-          {selectedGenotype === 'all' ? 'Please select a specific genotype on the map or filter to view time series.' : 'No time series data available for this feature and genotype.'}
+          {'No time series data available for this feature and genotype.'}
         </div>
       </div>
     );
   }
 
-  const allValues = plots.flatMap((p) => p.values.filter((v: any) => v !== null && v !== undefined));
+  const allValues = displayPlots.flatMap((p) => p.values.filter((v: any) => v !== null && v !== undefined));
   const minVal = allValues.length ? Math.min(...allValues) : 0;
   const maxVal = allValues.length ? Math.max(...allValues) : 1;
   const paddedMin = minVal - (maxVal - minVal) * 0.1;
@@ -1184,7 +1210,9 @@ function TimeSeriesLineChart({
   const usableWidth = width - left - right;
   const usableHeight = height - top - bottom;
 
-  const nLabels = labels.length;
+  const seriesLength = Math.max(...displayPlots.map((p) => p.values.length), 0);
+  const usedLabels = labels.length ? labels.slice(0, seriesLength) : Array.from({ length: seriesLength }, (_, i) => `t${i + 1}`);
+  const nLabels = usedLabels.length;
   const xScale = (i: number) => left + (i / Math.max(1, nLabels - 1)) * usableWidth;
   const yScale = (v: number) => {
     if (paddedMax === paddedMin) return top + usableHeight / 2;
@@ -1198,7 +1226,11 @@ function TimeSeriesLineChart({
       <div className="db-chart-head">
         <div>
           <p className="db-chart-title">{FEATURE_LABELS[selectedFeature as FeatureKey] || selectedFeature} over time</p>
-          <p className="db-chart-note">Genotype {selectedGenotype} ({plots.length} plot{plots.length !== 1 ? 's' : ''})</p>
+          <p className="db-chart-note">
+            {selectedGenotype === 'all'
+              ? `All genotypes (avg of ${plots.length} plot${plots.length !== 1 ? 's' : ''})`
+              : `Genotype ${selectedGenotype} (${displayPlots.length} plot${displayPlots.length !== 1 ? 's' : ''})`}
+          </p>
         </div>
         {actions && <div className="db-chart-actions">{actions}</div>}
       </div>
@@ -1221,7 +1253,7 @@ function TimeSeriesLineChart({
             );
           })}
           
-          {labels.map((lbl, i) => {
+          {usedLabels.map((lbl, i) => {
             const x = xScale(i);
             return (
               <g key={i}>
@@ -1233,7 +1265,7 @@ function TimeSeriesLineChart({
             );
           })}
           
-          {plots.map((p, idx) => {
+          {displayPlots.map((p, idx) => {
             const color = COLORS[idx % COLORS.length];
             const pts = p.values.map((v: number | null, i: number) => v !== null && v !== undefined ? [xScale(i), yScale(v)] : null);
             
@@ -1253,7 +1285,7 @@ function TimeSeriesLineChart({
                 })}
                 {pts.map((pt: any, i: number) => pt && (
                   <circle key={i} cx={pt[0]} cy={pt[1]} r={3} fill={color} opacity={0.9}>
-                    <title>{`Plot ${p.plot_id} - ${labels[i]}: ${formatNumber(p.values[i], 3)}`}</title>
+                    <title>{`Plot ${p.plot_id} - ${usedLabels[i]}: ${formatNumber(p.values[i], 3)}`}</title>
                   </circle>
                 ))}
               </g>
@@ -1276,6 +1308,7 @@ export default function DashboardAnalyticsMap() {
   const mapRef = useRef<LeafletMap | null>(null);
   const layerRef = useRef<GeoJSON | null>(null);
   const hoveredLayerRef = useRef<Path | null>(null);
+  const selectedGenotypeRef = useRef<string>('all');
   const initRef = useRef(false);
 
   const [loaded, setLoaded] = useState(false);
@@ -1286,7 +1319,6 @@ export default function DashboardAnalyticsMap() {
   const [selectedGenotype, setSelectedGenotype] = useState<string>('all');
   const [expandedChart, setExpandedChart] = useState<string | null>(null);
   const [plots, setPlots] = useState<PlotProperties[]>([]);
-  const [hovered, setHovered] = useState<PlotProperties | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uavExpanded, setUavExpanded] = useState(false);
   const [leftMenuExpanded, setLeftMenuExpanded] = useState(false);
@@ -1300,6 +1332,10 @@ export default function DashboardAnalyticsMap() {
   const [effectiveSessionId, setEffectiveSessionId] = useState<string | null>(null);
 
   const router = useRouter();
+
+  useEffect(() => {
+    selectedGenotypeRef.current = selectedGenotype;
+  }, [selectedGenotype]);
 
   const exportTemporalTables = useCallback(async () => {
     try {
@@ -1427,7 +1463,13 @@ export default function DashboardAnalyticsMap() {
         const tsRes = await fetch(`${BACKEND_BASE_URL}/temporal/time-series${qs}`);
         if (tsRes.ok) {
           const tsData = await tsRes.json();
-          if (!cancelled) setTimeSeriesData(tsData.series || []);
+          if (!cancelled) {
+            console.log('time-series response', tsData);
+            setTimeSeriesData(tsData.series || []);
+            if (Array.isArray(tsData.timestamps) && tsData.timestamps.length > 0) {
+              setTimestampLabels(tsData.timestamps);
+            }
+          }
         }
       } catch (e) {
         console.error(e);
@@ -1482,8 +1524,6 @@ export default function DashboardAnalyticsMap() {
   }, [selectedFeatureValues]);
 
   const variationState = useMemo(() => buildYieldVariationMap(visiblePlots), [visiblePlots]);
-
-  const selectedFeatureValue = hovered ? readFeatureValue(hovered, selectedFeature) : Number.NaN;
 
   const updateLayerStyles = useCallback(() => {
     if (!layerRef.current) {
@@ -1645,10 +1685,11 @@ export default function DashboardAnalyticsMap() {
               return;
             }
 
+            if (selectedGenotypeRef.current !== 'all') {
+              return;
+            }
+
             hoveredLayerRef.current = plotLayer;
-            setHovered(plot);
-            plotLayer.setStyle({ color: HOVER_COLOR, fillColor: HOVER_COLOR, fillOpacity: 0.82, opacity: 1, weight: 2.4 });
-            plotLayer.bringToFront();
           });
 
           plotLayer.on('mouseout', () => {
@@ -1659,21 +1700,6 @@ export default function DashboardAnalyticsMap() {
             if (hoveredLayerRef.current === plotLayer) {
               hoveredLayerRef.current = null;
             }
-
-            setHovered(null);
-            plotLayer.setStyle(
-              getPlotStyle({
-                plot,
-                analysisMode,
-                highlighted: true,
-                selectedFeature,
-                selectedGenotype,
-                featureRange,
-                genotypeVariationById: variationState.variationByGenotype,
-                genotypeVariationRange: variationState.variationRange,
-                palette: featurePalette,
-              })
-            );
           });
 
           plotLayer.on('click', () => {
@@ -1722,8 +1748,11 @@ export default function DashboardAnalyticsMap() {
   }, []);
 
   useEffect(() => {
+    if (selectedGenotype !== 'all') {
+      hoveredLayerRef.current = null;
+    }
     updateLayerStyles();
-  }, [updateLayerStyles]);
+  }, [selectedGenotype, updateLayerStyles]);
 
   const handleFocus = useCallback(() => {
     const map = mapRef.current;
@@ -1878,14 +1907,6 @@ export default function DashboardAnalyticsMap() {
           </div>
         </div>
         <div className="db-topbar-right">
-          {hovered && (
-            <div className="db-probe">
-              <span className="db-probe-label">Plot #{hovered.plot_id}</span>
-              <span className="db-probe-chip">G{hovered.genotype}</span>
-              <span className="db-probe-sep">|</span>
-              <span className="db-probe-exp">{FEATURE_LABELS[selectedFeature]} {formatNumber(selectedFeatureValue, 2)}</span>
-            </div>
-          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12 }}>
             {!authReady ? null : currentUser ? (
               <>
@@ -2020,7 +2041,7 @@ export default function DashboardAnalyticsMap() {
             <div className="db-section-head">
               <div>
                 <p className="db-sidebar-section-title">Genotype filter</p>
-                <h2 className="db-section-title">Only genotype numbers greater than 3</h2>
+                <h2 className="db-section-title">Select Genotype</h2>
               </div>
               <button className="db-text-button" type="button" onClick={() => handleGenotypeChange('all')}>
                 Reset

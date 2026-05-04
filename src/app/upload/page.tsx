@@ -201,6 +201,7 @@ export default function UploadPage() {
       const res = await fetch(`${API}/upload/reflectance-maps`, { method: 'POST', body: fd, credentials: 'include', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      sessionStorage.setItem('session_id', data.session_id);
       setResult(data);
     } catch (e) {
       setError(String(e));
@@ -228,6 +229,7 @@ export default function UploadPage() {
       const res = await fetch(`${API}/upload/temporal-csv-only`, { method: 'POST', body: fd, credentials: 'include', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      sessionStorage.setItem('session_id', data.session_id);
       setResult(data);
     } catch (e) {
       setError(String(e));
@@ -278,6 +280,7 @@ export default function UploadPage() {
       const res = await fetch(`${API}/upload/shapefile-only`, { method: 'POST', body: fd, credentials: 'include', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      sessionStorage.setItem('session_id', data.session_id);
       setResult({ ...data, message: data.message });
     } catch (e) { setError(String(e)); }
     finally { setUploading(false); }
@@ -305,6 +308,7 @@ export default function UploadPage() {
       const res = await fetch(`${API}/upload/temporal-csvs`, { method: 'POST', body: fd, credentials: 'include', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      sessionStorage.setItem('session_id', data.session_id);
       setResult(data);
     } catch (e) {
       setError(String(e));
@@ -432,12 +436,12 @@ export default function UploadPage() {
             </h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-              <Dropzone label="RGB Reflectance Maps (×12)" accept=".tif,.tiff,.png,.jpg" multiple
+              <Dropzone label="RGB Reflectance Maps (×16)" accept=".tif,.tiff,.png,.jpg" multiple
                 files={rgbFiles} onChange={setRgbFiles}
-                hint="One RGB image per timestamp (up to 12)" />
-              <Dropzone label="NIR Reflectance Maps (×12)" accept=".tif,.tiff,.png,.jpg" multiple
+                hint="One RGB image per timestamp (up to 16)" />
+              <Dropzone label="NIR Reflectance Maps (×16)" accept=".tif,.tiff,.png,.jpg" multiple
                 files={nirFiles} onChange={setNirFiles}
-                hint="One NIR image per timestamp (up to 12)" />
+                hint="One NIR image per timestamp (up to 16)" />
             </div>
 
             <Dropzone label="Shapefile as GeoJSON" accept=".geojson,.json" multiple={false}
@@ -540,6 +544,9 @@ export default function UploadPage() {
               </button>
               <button onClick={() => router.push(`/yield-prediction?session_id=${result.session_id}`)} style={{ ...secondaryBtn }}>
                 Yield Prediction
+              </button>
+              <button onClick={() => router.push('/assistant')} style={{ ...secondaryBtn, background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' }}>
+                🤖 Ask Assistant
               </button>
             </div>
           </div>
