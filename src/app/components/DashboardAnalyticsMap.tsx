@@ -1132,6 +1132,145 @@ function PerformanceBars({
   );
 }
 
+function TimeSeriesLineChart({
+  seriesData,
+  labels,
+  selectedGenotype,
+  selectedFeature,
+  actions,
+  isExpanded,
+}: {
+  seriesData: any[];
+  labels: string[];
+  selectedGenotype: string;
+  selectedFeature: string;
+  actions?: React.ReactNode;
+  isExpanded?: boolean;
+}) {
+  const plots = useMemo(() => {
+    if (selectedGenotype === 'all') return [];
+    const baseFeature = selectedFeature.replace('_mean', '');
+    return seriesData.filter((d) => String(d.genotype) === selectedGenotype && d.feature === baseFeature);
+  }, [seriesData, selectedGenotype, selectedFeature]);
+
+  if (selectedGenotype === 'all' || plots.length === 0) {
+    return (
+      <div className="db-chart-card">
+        <div className="db-chart-head">
+          <div>
+            <p className="db-chart-title">Time Series</p>
+            <p className="db-chart-note">Select a genotype to view over time.</p>
+          </div>
+        </div>
+        <div style={{ height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: 13, textAlign: 'center', padding: '0 20px' }}>
+          {selectedGenotype === 'all' ? 'Please select a specific genotype on the map or filter to view time series.' : 'No time series data available for this feature and genotype.'}
+        </div>
+      </div>
+    );
+  }
+
+  const allValues = plots.flatMap((p) => p.values.filter((v: any) => v !== null && v !== undefined));
+  const minVal = allValues.length ? Math.min(...allValues) : 0;
+  const maxVal = allValues.length ? Math.max(...allValues) : 1;
+  const paddedMin = minVal - (maxVal - minVal) * 0.1;
+  const paddedMax = maxVal + (maxVal - minVal) * 0.1;
+  
+  const width = isExpanded ? 800 : 520;
+  const height = isExpanded ? 400 : 220;
+  const left = 54;
+  const right = 22;
+  const top = 24;
+  const bottom = 48;
+  const usableWidth = width - left - right;
+  const usableHeight = height - top - bottom;
+
+  const nLabels = labels.length;
+  const xScale = (i: number) => left + (i / Math.max(1, nLabels - 1)) * usableWidth;
+  const yScale = (v: number) => {
+    if (paddedMax === paddedMin) return top + usableHeight / 2;
+    return top + (1 - (v - paddedMin) / (paddedMax - paddedMin)) * usableHeight;
+  };
+
+  const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+
+  return (
+    <div className="db-chart-card">
+      <div className="db-chart-head">
+        <div>
+          <p className="db-chart-title">{FEATURE_LABELS[selectedFeature as FeatureKey] || selectedFeature} over time</p>
+          <p className="db-chart-note">Genotype {selectedGenotype} ({plots.length} plot{plots.length !== 1 ? 's' : ''})</p>
+        </div>
+        {actions && <div className="db-chart-actions">{actions}</div>}
+      </div>
+      <div style={{ overflowX: 'auto', overflowY: 'hidden' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} className="db-chart-svg" style={{ overflow: 'visible', minWidth: width }}>
+          <line x1={left} y1={top} x2={left} y2={height - bottom} className="db-chart-axis" />
+          <line x1={left} y1={height - bottom} x2={width - right} y2={height - bottom} className="db-chart-axis" />
+          
+          {[0, 0.25, 0.5, 0.75, 1].map((tick) => {
+            const yValue = paddedMin + (paddedMax - paddedMin) * tick;
+            const y = yScale(yValue);
+            return (
+              <g key={tick}>
+                <line x1={left - 6} y1={y} x2={left} y2={y} className="db-chart-tick" />
+                <line x1={left} y1={y} x2={width - right} y2={y} style={{ stroke: '#334155', strokeWidth: 1, strokeDasharray: '2 4' }} />
+                <text x={left - 10} y={y + 4} textAnchor="end" className="db-chart-label">
+                  {formatNumber(yValue, 2)}
+                </text>
+              </g>
+            );
+          })}
+          
+          {labels.map((lbl, i) => {
+            const x = xScale(i);
+            return (
+              <g key={i}>
+                <line x1={x} y1={height - bottom} x2={x} y2={height - bottom + 6} className="db-chart-tick" />
+                <text x={x} y={height - bottom + 16} textAnchor={isExpanded ? 'middle' : 'end'} transform={isExpanded ? '' : `rotate(-45 ${x} ${height - bottom + 16})`} className="db-chart-label" style={{ fontSize: 9 }}>
+                  {lbl}
+                </text>
+              </g>
+            );
+          })}
+          
+          {plots.map((p, idx) => {
+            const color = COLORS[idx % COLORS.length];
+            const pts = p.values.map((v: number | null, i: number) => v !== null && v !== undefined ? [xScale(i), yScale(v)] : null);
+            
+            const segments = [];
+            let currentSegment = [];
+            for (let i=0; i<pts.length; i++) {
+              if (pts[i]) currentSegment.push(pts[i]);
+              else if (currentSegment.length > 0) { segments.push(currentSegment); currentSegment = []; }
+            }
+            if (currentSegment.length > 0) segments.push(currentSegment);
+
+            return (
+              <g key={p.plot_id}>
+                {segments.map((seg, sIdx) => {
+                  const d = `M ${seg.map((pt: any) => `${pt[0]},${pt[1]}`).join(' L ')}`;
+                  return <path key={sIdx} d={d} fill="none" stroke={color} strokeWidth={2} opacity={0.7} />;
+                })}
+                {pts.map((pt: any, i: number) => pt && (
+                  <circle key={i} cx={pt[0]} cy={pt[1]} r={3} fill={color} opacity={0.9}>
+                    <title>{`Plot ${p.plot_id} - ${labels[i]}: ${formatNumber(p.values[i], 3)}`}</title>
+                  </circle>
+                ))}
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+      {isExpanded && (
+        <div style={{ padding: '8px 12px', background: 'rgba(30, 41, 59, 0.5)', borderRadius: '6px', margin: '0 16px 12px', display: 'flex', justifyContent: 'center', gap: '24px', fontSize: '13px', color: '#cbd5e1' }}>
+          <span><strong style={{ color: '#fff' }}>X-axis:</strong> Timepoint</span>
+          <span><strong style={{ color: '#fff' }}>Y-axis:</strong> {FEATURE_LABELS[selectedFeature as FeatureKey] || selectedFeature}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DashboardAnalyticsMap() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -1154,6 +1293,12 @@ export default function DashboardAnalyticsMap() {
   const [comingSoonFeature, setComingSoonFeature] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<{ name: string; email: string } | null>(null);
   const [authReady, setAuthReady] = useState(false);
+  
+  // Time Series State
+  const [timeSeriesData, setTimeSeriesData] = useState<any[]>([]);
+  const [timestampLabels, setTimestampLabels] = useState<string[]>([]);
+  const [effectiveSessionId, setEffectiveSessionId] = useState<string | null>(null);
+
   const router = useRouter();
 
   const exportTemporalTables = useCallback(async () => {
@@ -1208,7 +1353,9 @@ export default function DashboardAnalyticsMap() {
 
   const handleLogout = useCallback(async () => {
     try {
+      await fetch(`${BACKEND_BASE_URL}/user/reset-upload`, { method: 'POST', credentials: 'include' }).catch(() => {});
       await fetch(`${BACKEND_BASE_URL}/auth/signout`, { method: 'POST', credentials: 'include' });
+      window.location.reload();
     } finally {
       setCurrentUser(null);
     }
@@ -1242,6 +1389,44 @@ export default function DashboardAnalyticsMap() {
       ⛶ Expand
     </button>
   ), []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadTimeSeries = async () => {
+      try {
+        const infoRes = await fetch(`${BACKEND_BASE_URL}/user/last-upload/info`, { credentials: 'include' });
+        let sid = null;
+        if (infoRes.ok) {
+          const infoData = await infoRes.json();
+          sid = infoData.session_id;
+        }
+        if (!cancelled) setEffectiveSessionId(sid);
+        
+        let labels = [...UAV_DATES];
+        if (sid) {
+          const sessRes = await fetch(`${BACKEND_BASE_URL}/session/${sid}/info`);
+          if (sessRes.ok) {
+            const sessData = await sessRes.json();
+            if (sessData.timestamp_labels && sessData.timestamp_labels.length > 0) {
+              labels = sessData.timestamp_labels;
+            }
+          }
+        }
+        if (!cancelled) setTimestampLabels(labels);
+        
+        const qs = sid ? `?session_id=${sid}` : '';
+        const tsRes = await fetch(`${BACKEND_BASE_URL}/temporal/time-series${qs}`);
+        if (tsRes.ok) {
+          const tsData = await tsRes.json();
+          if (!cancelled) setTimeSeriesData(tsData.series || []);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    };
+    loadTimeSeries();
+    return () => { cancelled = true; };
+  }, [UAV_DATES]);
 
   const availableGenotypes = useMemo(() => {
     // Exclude NaN entries — these come from uploaded shapefiles where the PLOT_ID
@@ -1667,6 +1852,7 @@ export default function DashboardAnalyticsMap() {
             {expandedChart === 'scatter-plot' && <ScatterPlot records={visiblePlots} feature={selectedFeature} yieldThresholds={yieldThresholds} />}
             {expandedChart === 'yield-variation' && <YieldVariationBars variationByGenotype={variationState.variationByGenotype} />}
             {expandedChart === 'genotype-stability' && <GenotypeStabilityScatter records={visiblePlots} />}
+            {expandedChart === 'time-series' && <TimeSeriesLineChart seriesData={timeSeriesData} labels={timestampLabels} selectedGenotype={selectedGenotype} selectedFeature={selectedFeature} isExpanded={true} />}
           </div>
         </div>
       )}
@@ -1902,6 +2088,10 @@ export default function DashboardAnalyticsMap() {
 
           <section className="db-sidebar-section">
             <GenotypeStabilityScatter records={visiblePlots} actions={expandAction('genotype-stability')} />
+          </section>
+
+          <section className="db-sidebar-section">
+            <TimeSeriesLineChart seriesData={timeSeriesData} labels={timestampLabels} selectedGenotype={selectedGenotype} selectedFeature={selectedFeature} actions={expandAction('time-series')} />
           </section>
 
           <section className="db-sidebar-section">

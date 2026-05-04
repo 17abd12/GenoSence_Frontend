@@ -628,6 +628,101 @@ function CategorySummarySection({ qs = '' }: { qs?: string }) {
   );
 }
 
+// ─── OLS Slope Effect ────────────────────────────────────────────────────────
+function OLSSlopeSection({ qs = '' }: { qs?: string }) {
+  const { data, loading, error } = useFetch<{ effects: AnyRecord[] }>(`${API}/temporal/ols-slope${qs}`);
+  
+  if (loading || error || !data) {
+    return <Card title="Global Slope Effect on Yield"><LoadState loading={loading} error={error} /></Card>;
+  }
+
+  let effects = data.effects || [];
+  if (effects.length === 0) {
+    return <Card title="Global Slope Effect on Yield"><div style={{ padding: 20, color: '#64748b' }}>No significant slope effects found.</div></Card>;
+  }
+
+  if (effects.length > 30) {
+    const sig = effects.filter(e => e.is_significant);
+    const nonSig = effects.filter(e => !e.is_significant);
+    nonSig.sort((a, b) => Math.abs(Number(b.global_slope)) - Math.abs(Number(a.global_slope)));
+    const keepNonSig = nonSig.slice(0, Math.max(0, 30 - sig.length));
+    effects = [...sig, ...keepNonSig];
+    effects.sort((a, b) => Number(a.global_slope) - Number(b.global_slope));
+  }
+
+  const maxAbs = Math.max(0.01, ...effects.map(e => Math.abs(Number(e.global_slope))));
+
+  return (
+    <Card title="Global Slope Effect on Yield" subtitle="OLS regression slope of features significantly varying by genotype (Kruskal p < 0.05)">
+      <div style={{ display: 'flex', gap: 32, marginTop: 24, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 350, display: 'flex', flexDirection: 'column' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', height: 24, fontSize: 13, color: '#64748b', marginBottom: 8 }}>
+            <div style={{ width: 180, textAlign: 'center' }}>feature</div>
+            <div style={{ flex: 1, display: 'flex', position: 'relative' }}>
+              <div style={{ position: 'absolute', bottom: -28, left: '50%', transform: 'translateX(-50%)' }}>global_slope</div>
+            </div>
+          </div>
+          
+          <div style={{ position: 'relative', marginTop: 12 }}>
+            <div style={{ position: 'absolute', top: 0, bottom: 0, left: 180, right: 0, display: 'flex' }}>
+              <div style={{ flex: 1, borderRight: '1px dashed #cbd5e1' }}></div>
+              <div style={{ flex: 1 }}></div>
+            </div>
+
+            {effects.map((eff, i) => {
+              const isSig = eff.is_significant;
+              const slope = Number(eff.global_slope);
+              const wPct = (Math.abs(slope) / maxAbs) * 100;
+              const color = isSig ? '#1f77b4' : '#7f7f7f';
+
+              return (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', height: 18, fontSize: 12, position: 'relative', zIndex: 1 }}>
+                  <div style={{ width: 180, textAlign: 'right', paddingRight: 12, color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={String(eff.feature)}>
+                    {String(eff.feature)}
+                  </div>
+                  <div style={{ flex: 1, display: 'flex' }}>
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', borderRight: '1px solid #334155' }}>
+                      {slope < 0 && (
+                        <div style={{ height: 10, width: `${wPct}%`, background: color, border: '1px solid #334155' }} />
+                      )}
+                    </div>
+                    <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start', marginLeft: -1 }}>
+                      {slope >= 0 && (
+                        <div style={{ height: 10, width: `${wPct}%`, background: color, border: '1px solid #334155' }} />
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{ display: 'flex', marginTop: 8 }}>
+            <div style={{ width: 180 }}></div>
+            <div style={{ flex: 1, display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', padding: '0 4px' }}>
+              <span>-{Math.round(maxAbs)}</span>
+              <span>0</span>
+              <span>{Math.round(maxAbs)}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div style={{ width: 200, paddingTop: 16 }}>
+          <div style={{ fontSize: 13, color: '#64748b', marginBottom: 12 }}>Significance</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10, fontSize: 13, color: '#1e293b' }}>
+            <div style={{ width: 16, height: 16, background: '#1f77b4', border: '1px solid #334155' }}></div>
+            Significant (p&lt;0.05)
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: '#1e293b' }}>
+            <div style={{ width: 16, height: 16, background: '#7f7f7f', border: '1px solid #334155' }}></div>
+            Not Significant
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function TemporalAnalysis() {
   const router = useRouter();
@@ -708,6 +803,7 @@ export default function TemporalAnalysis() {
         <InterpretationSection qs={qs} />
         <OutliersSection qs={qs} />
         <CategorySummarySection qs={qs} />
+        <OLSSlopeSection qs={qs} />
       </div>
     </div>
   );
