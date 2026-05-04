@@ -195,6 +195,7 @@ export default function UploadPage() {
       const res = await fetch(`${API}/upload/reflectance-maps`, { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      sessionStorage.setItem('session_id', data.session_id);
       setResult(data);
     } catch (e) {
       setError(String(e));
@@ -219,6 +220,7 @@ export default function UploadPage() {
       const res = await fetch(`${API}/upload/temporal-csv-only`, { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      sessionStorage.setItem('session_id', data.session_id);
       setResult(data);
     } catch (e) {
       setError(String(e));
@@ -266,6 +268,7 @@ export default function UploadPage() {
       const res = await fetch(`${API}/upload/shapefile-only`, { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      sessionStorage.setItem('session_id', data.session_id);
       setResult({ ...data, message: data.message });
     } catch (e) { setError(String(e)); }
     finally { setUploading(false); }
@@ -290,6 +293,7 @@ export default function UploadPage() {
       const res = await fetch(`${API}/upload/temporal-csvs`, { method: 'POST', body: fd, credentials: 'include' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
+      sessionStorage.setItem('session_id', data.session_id);
       setResult(data);
     } catch (e) {
       setError(String(e));
@@ -525,6 +529,9 @@ export default function UploadPage() {
               </button>
               <button onClick={() => router.push(`/yield-prediction?session_id=${result.session_id}`)} style={{ ...secondaryBtn }}>
                 Yield Prediction
+              </button>
+              <button onClick={() => router.push('/assistant')} style={{ ...secondaryBtn, background: '#eff6ff', borderColor: '#bfdbfe', color: '#1d4ed8' }}>
+                🤖 Ask Assistant
               </button>
             </div>
           </div>

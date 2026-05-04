@@ -25,8 +25,10 @@ export default function AssistantPage() {
   const [context, setContext] = useState<string>('');
   const [authReady, setAuthReady] = useState(false);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
+    // Restore chat history
     const stored = sessionStorage.getItem(STORAGE_KEY);
     if (stored) {
       try {
@@ -36,6 +38,9 @@ export default function AssistantPage() {
         sessionStorage.removeItem(STORAGE_KEY);
       }
     }
+    // Load session_id so the backend can pull the full CSV for this session
+    const sid = sessionStorage.getItem('session_id');
+    if (sid) setSessionId(sid);
   }, []);
 
   useEffect(() => {
@@ -101,7 +106,12 @@ export default function AssistantPage() {
       const res = await fetch(`${API}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed, history: historyForApi, context }),
+        body: JSON.stringify({
+          message: trimmed,
+          history: historyForApi,
+          context,
+          session_id: sessionId ?? undefined,
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as ChatResponse;
@@ -181,8 +191,19 @@ export default function AssistantPage() {
             </button>
           </div>
           <p style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>
-            Ask about genotypes, stability, yield class, and phenotype signals.
+            Ask about genotypes, yield values, NDVI, NDWI, and all crop indices.
+            The bot has full access to your uploaded experiment data.
           </p>
+          {sessionId && (
+            <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 8, background: '#f0fdf4', border: '1px solid #bbf7d0', fontSize: 11, color: '#166534' }}>
+              ✓ Session data loaded — genotype &amp; value queries fully supported
+            </div>
+          )}
+          {!sessionId && (
+            <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 8, background: '#fff7ed', border: '1px solid #fed7aa', fontSize: 11, color: '#92400e' }}>
+              ⚠ No session active — upload data first for genotype queries
+            </div>
+          )}
 
           <div style={{ marginTop: 18, display: 'grid', gap: 10 }}>
             <div style={{ padding: 12, borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
