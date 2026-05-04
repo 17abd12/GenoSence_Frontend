@@ -16,7 +16,6 @@ export default function SignUpPage() {
 
   const startGoogleSignUp = useGoogleLogin({
     flow: 'implicit',
-    ux_mode: 'popup',
     onSuccess: async tokenResponse => {
       if (!tokenResponse.access_token) {
         setError('Google sign up failed. No access token returned.');
@@ -35,6 +34,12 @@ export default function SignUpPage() {
         if (!res.ok) {
           throw new Error(data.detail || 'Google sign up failed');
         }
+        try {
+          if (data.access_token) {
+            localStorage.setItem('access_token', data.access_token);
+          }
+        } catch {}
+        alert('✓ Account created successfully!');
         router.push('/');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Google sign up failed');
@@ -62,6 +67,12 @@ export default function SignUpPage() {
       if (!res.ok) {
         throw new Error(data.detail || 'Sign up failed');
       }
+      try {
+        if (data.access_token) {
+          localStorage.setItem('access_token', data.access_token);
+        }
+      } catch {}
+      alert('✓ Account created successfully!');
       router.push('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign up failed');

@@ -124,7 +124,10 @@ export default function UploadPage() {
     let cancelled = false;
     const checkAuth = async () => {
       try {
-        const res = await fetch(`${API}/auth/me`, { credentials: 'include' });
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${API}/auth/me`, { credentials: 'include', headers });
         if (!cancelled) {
           setIsAuthed(res.ok);
           setAuthReady(true);
@@ -192,7 +195,10 @@ export default function UploadPage() {
     fd.append('timestamps', tsLabels.slice(0, rgbFiles.length).join(','));
 
     try {
-      const res = await fetch(`${API}/upload/reflectance-maps`, { method: 'POST', body: fd, credentials: 'include' });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API}/upload/reflectance-maps`, { method: 'POST', body: fd, credentials: 'include', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       sessionStorage.setItem('session_id', data.session_id);
@@ -217,7 +223,10 @@ export default function UploadPage() {
     fd.append('temporal_csv', singleCsv[0]);
     if (shapefileC.length > 0) fd.append('shapefile_json', shapefileC[0]);
     try {
-      const res = await fetch(`${API}/upload/temporal-csv-only`, { method: 'POST', body: fd, credentials: 'include' });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API}/upload/temporal-csv-only`, { method: 'POST', body: fd, credentials: 'include', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       sessionStorage.setItem('session_id', data.session_id);
@@ -265,7 +274,10 @@ export default function UploadPage() {
     const fd = new FormData();
     fd.append('shapefile_json', shapefileD[0]);
     try {
-      const res = await fetch(`${API}/upload/shapefile-only`, { method: 'POST', body: fd, credentials: 'include' });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API}/upload/shapefile-only`, { method: 'POST', body: fd, credentials: 'include', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       sessionStorage.setItem('session_id', data.session_id);
@@ -290,7 +302,10 @@ export default function UploadPage() {
     if (shapefileB.length > 0) fd.append('shapefile_json', shapefileB[0]);
 
     try {
-      const res = await fetch(`${API}/upload/temporal-csvs`, { method: 'POST', body: fd, credentials: 'include' });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      const res = await fetch(`${API}/upload/temporal-csvs`, { method: 'POST', body: fd, credentials: 'include', headers });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || 'Upload failed');
       sessionStorage.setItem('session_id', data.session_id);
