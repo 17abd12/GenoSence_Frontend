@@ -1325,7 +1325,10 @@ export default function DashboardAnalyticsMap() {
     let cancelled = false;
     const loadUser = async () => {
       try {
-        const res = await fetch(`${BACKEND_BASE_URL}/auth/me`, { credentials: 'include' });
+        const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+        const headers: Record<string, string> = {};
+        if (token) headers['Authorization'] = `Bearer ${token}`;
+        const res = await fetch(`${BACKEND_BASE_URL}/auth/me`, { credentials: 'include', headers });
         if (!res.ok) {
           if (!cancelled) {
             setCurrentUser(null);
@@ -1353,8 +1356,14 @@ export default function DashboardAnalyticsMap() {
 
   const handleLogout = useCallback(async () => {
     try {
-      await fetch(`${BACKEND_BASE_URL}/user/reset-upload`, { method: 'POST', credentials: 'include' }).catch(() => {});
-      await fetch(`${BACKEND_BASE_URL}/auth/signout`, { method: 'POST', credentials: 'include' });
+      const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      await fetch(`${BACKEND_BASE_URL}/user/reset-upload`, { method: 'POST', credentials: 'include', headers }).catch(() => {});
+      await fetch(`${BACKEND_BASE_URL}/auth/signout`, { method: 'POST', credentials: 'include', headers });
+      try {
+        localStorage.removeItem('access_token');
+      } catch {}
       window.location.reload();
     } finally {
       setCurrentUser(null);

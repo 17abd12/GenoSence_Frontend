@@ -15,7 +15,6 @@ export default function SignInPage() {
 
   const startGoogleSignIn = useGoogleLogin({
     flow: 'implicit',
-    ux_mode: 'popup',
     onSuccess: async tokenResponse => {
       if (!tokenResponse.access_token) {
         setError('Google sign in failed. No access token returned.');
@@ -34,6 +33,12 @@ export default function SignInPage() {
         if (!res.ok) {
           throw new Error(data.detail || 'Google sign in failed');
         }
+        try {
+          if (data.access_token) {
+            localStorage.setItem('access_token', data.access_token);
+          }
+        } catch {}
+        alert('✓ Signed in successfully!');
         router.push('/');
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Google sign in failed');
@@ -61,6 +66,12 @@ export default function SignInPage() {
       if (!res.ok) {
         throw new Error(data.detail || 'Sign in failed');
       }
+      try {
+        if (data.access_token) {
+          localStorage.setItem('access_token', data.access_token);
+        }
+      } catch {}
+      alert('✓ Signed in successfully!');
       router.push('/');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Sign in failed');
