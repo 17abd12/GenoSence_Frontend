@@ -421,12 +421,12 @@ export default function UploadPage() {
             </h2>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-              <Dropzone label="RGB Reflectance Maps (×12)" accept=".tif,.tiff,.png,.jpg" multiple
+              <Dropzone label="RGB Reflectance Maps (×16)" accept=".tif,.tiff,.png,.jpg" multiple
                 files={rgbFiles} onChange={setRgbFiles}
-                hint="One RGB image per timestamp (up to 12)" />
-              <Dropzone label="NIR Reflectance Maps (×12)" accept=".tif,.tiff,.png,.jpg" multiple
+                hint="One RGB image per timestamp (up to 16)" />
+              <Dropzone label="NIR Reflectance Maps (×16)" accept=".tif,.tiff,.png,.jpg" multiple
                 files={nirFiles} onChange={setNirFiles}
-                hint="One NIR image per timestamp (up to 12)" />
+                hint="One NIR image per timestamp (up to 16)" />
             </div>
 
             <Dropzone label="Shapefile as GeoJSON" accept=".geojson,.json" multiple={false}

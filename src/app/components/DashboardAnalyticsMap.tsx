@@ -2032,7 +2032,7 @@ export default function DashboardAnalyticsMap() {
             <div className="db-section-head">
               <div>
                 <p className="db-sidebar-section-title">Genotype filter</p>
-                <h2 className="db-section-title">Only genotype numbers greater than 3</h2>
+                <h2 className="db-section-title">Select Genotype</h2>
               </div>
               <button className="db-text-button" type="button" onClick={() => handleGenotypeChange('all')}>
                 Reset
