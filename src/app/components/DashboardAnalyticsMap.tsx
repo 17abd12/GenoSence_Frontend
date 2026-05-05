@@ -1967,10 +1967,12 @@ export default function DashboardAnalyticsMap() {
               <>
                 <span style={{ fontSize: 12, color: '#475569' }}>{currentUser.name || currentUser.email}</span>
                 <button className="db-btn" type="button" onClick={handleResetData} title="Clear your uploaded data and view sample data">Load Sample Data</button>
+                <button className="db-btn" type="button" onClick={() => router.push('/about')} title="Learn more about GenoSense">About</button>
                 <button className="db-btn" type="button" onClick={handleLogout}>Logout</button>
               </>
             ) : (
               <>
+                <button className="db-btn" type="button" onClick={() => router.push('/about')} title="Learn more about GenoSense">About</button>
                 <button className="db-btn" type="button" onClick={() => router.push('/signin')}>Sign in</button>
                 <button className="db-btn" type="button" onClick={() => router.push('/signup')}>Sign up</button>
               </>
