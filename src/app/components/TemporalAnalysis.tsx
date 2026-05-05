@@ -227,6 +227,11 @@ function StabilitySection({ qs = '' }: { qs?: string }) {
             </div>
           )
       )}
+      <div className="db-mini-legend" style={{ marginTop: 12 }}>
+        <span><i className="db-mini-dot" style={{ background: '#10b981' }} />Low variation (&lt;10%)</span>
+        <span><i className="db-mini-dot" style={{ background: '#f59e0b' }} />Moderate (10-25%)</span>
+        <span><i className="db-mini-dot" style={{ background: '#ef4444' }} />High (&gt;25%)</span>
+      </div>
     </Card>
   );
 }
@@ -260,6 +265,11 @@ function YieldClassSection({ qs = '' }: { qs?: string }) {
           </div>
         </>
       )}
+      <div className="db-mini-legend" style={{ marginTop: 12 }}>
+        <span><i className="db-mini-dot" style={{ background: '#ef4444' }} />Low</span>
+        <span><i className="db-mini-dot" style={{ background: '#f59e0b' }} />Medium</span>
+        <span><i className="db-mini-dot" style={{ background: '#10b981' }} />High</span>
+      </div>
     </Card>
   );
 }
@@ -278,6 +288,9 @@ function TukeySection({ qs = '' }: { qs?: string }) {
           </div>
         </>
       )}
+      <div className="db-mini-legend" style={{ marginTop: 12 }}>
+        <span>Bar height shows significant pair count per feature</span>
+      </div>
     </Card>
   );
 }
@@ -296,6 +309,10 @@ function CorrelationSection({ qs = '' }: { qs?: string }) {
           </div>
         </>
       )}
+      <div className="db-mini-legend" style={{ marginTop: 12 }}>
+        <span><i className="db-mini-dot" style={{ background: '#3b82f6' }} />Positive correlation</span>
+        <span><i className="db-mini-dot" style={{ background: '#ef4444' }} />Negative correlation</span>
+      </div>
     </Card>
   );
 }
@@ -353,6 +370,11 @@ function GrowthSenescenceSection({ qs = '' }: { qs?: string }) {
             </>
           )
       )}
+      <div className="db-mini-legend" style={{ marginTop: 12 }}>
+        <span><i className="db-mini-dot" style={{ background: '#ef4444' }} />Low</span>
+        <span><i className="db-mini-dot" style={{ background: '#f59e0b' }} />Medium</span>
+        <span><i className="db-mini-dot" style={{ background: '#10b981' }} />High</span>
+      </div>
     </Card>
   );
 }
@@ -405,6 +427,11 @@ function PhenologySection({ qs = '' }: { qs?: string }) {
             </>
           )
       )}
+      <div className="db-mini-legend" style={{ marginTop: 12 }}>
+        <span><i className="db-mini-dot" style={{ background: '#ef4444' }} />Low</span>
+        <span><i className="db-mini-dot" style={{ background: '#f59e0b' }} />Medium</span>
+        <span><i className="db-mini-dot" style={{ background: '#10b981' }} />High</span>
+      </div>
     </Card>
   );
 }
@@ -416,6 +443,9 @@ function InterpretationSection({ qs = '' }: { qs?: string }) {
     <Card title="4I · Feature Biological Interpretation" subtitle="Significant features and their agronomic meaning">
       <LoadState loading={loading} error={error} />
       {data && <DataTable rows={data.interpretations} cols={['feature', 'p_value', 'mean_high', 'mean_low', 'effect_direction', 'biological_reason']} sortKey="mean_high" />}
+      <div className="db-mini-legend" style={{ marginTop: 10 }}>
+        <span>Effect direction compares mean_high vs mean_low</span>
+      </div>
     </Card>
   );
 }
@@ -518,6 +548,10 @@ function OutliersSection({ qs = '' }: { qs?: string }) {
               </button>
             ))}
           </div>
+          <div className="db-mini-legend" style={{ marginTop: 2 }}>
+            <span><i className="db-mini-dot" style={{ background: '#dc2626' }} />Positive Z (high outliers)</span>
+            <span><i className="db-mini-dot" style={{ background: '#2563eb' }} />Negative Z (low outliers)</span>
+          </div>
           <OutlierHeatmap data={filtered} />
         </>
       )}
@@ -619,6 +653,9 @@ function CategorySummarySection({ qs = '' }: { qs?: string }) {
           {data.heatmap_matrix.length > 0 && (
             <div style={{ marginTop: 24 }}>
               <p style={{ fontSize: 13, color: '#0f172a', fontWeight: 600, marginBottom: 8 }}>Feature Category × Yield Class — Mean |Z|</p>
+              <div className="db-mini-legend" style={{ marginBottom: 10 }}>
+                <span><i className="db-mini-dot" style={{ background: '#dc2626' }} />Darker red = higher mean |Z|</span>
+              </div>
               <HeatmapTable data={data.heatmap_matrix} />
             </div>
           )}

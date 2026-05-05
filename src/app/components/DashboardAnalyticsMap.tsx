@@ -1523,6 +1523,16 @@ export default function DashboardAnalyticsMap() {
     return [Math.min(...selectedFeatureValues), Math.max(...selectedFeatureValues)] as [number, number];
   }, [selectedFeatureValues]);
 
+  const featureStats = useMemo(() => {
+    if (selectedFeatureValues.length === 0) {
+      return { min: 0, max: 1, mean: Number.NaN, count: 0 };
+    }
+    const min = Math.min(...selectedFeatureValues);
+    const max = Math.max(...selectedFeatureValues);
+    const meanValue = mean(selectedFeatureValues);
+    return { min, max, mean: meanValue, count: selectedFeatureValues.length };
+  }, [selectedFeatureValues]);
+
   const variationState = useMemo(() => buildYieldVariationMap(visiblePlots), [visiblePlots]);
 
   const updateLayerStyles = useCallback(() => {
@@ -1907,7 +1917,52 @@ export default function DashboardAnalyticsMap() {
           </div>
         </div>
         <div className="db-topbar-right">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginLeft: 12 }}>
+          <div className="db-topbar-legend-stack">
+            {analysisMode === 'feature' && (
+              <div className="db-topbar-feature">
+                <div className="db-topbar-feature-title">{FEATURE_LABELS[selectedFeature]}</div>
+                <div className="db-topbar-feature-meta">
+                  <span className="db-topbar-chip">
+                    Mean {featureStats.count ? formatNumber(featureStats.mean, 2) : '—'}
+                  </span>
+                  <span className="db-topbar-chip">
+                    Range {featureStats.count ? `${formatNumber(featureStats.min, 2)} - ${formatNumber(featureStats.max, 2)}` : '—'}
+                  </span>
+                </div>
+                <div className="db-topbar-legend">
+                  <span className="db-leg">
+                    <span className="db-leg-gradient" style={{ background: paletteGradient(featurePalette) }} />
+                  </span>
+                  <span className="db-topbar-legend-label">Low</span>
+                  <span className="db-topbar-legend-label">High</span>
+                </div>
+              </div>
+            )}
+            {analysisMode === 'genotype' && (
+              <div className="db-topbar-feature">
+                <div className="db-topbar-feature-title">Genotype focus</div>
+                <div className="db-topbar-legend">
+                  <span className="db-leg">
+                    <span className="db-leg-swatch" style={{ background: GREEN_FILL }} />
+                  </span>
+                  <span className="db-topbar-legend-label">Selected genotype</span>
+                </div>
+              </div>
+            )}
+            {analysisMode === 'yield-variation' && (
+              <div className="db-topbar-feature">
+                <div className="db-topbar-feature-title">Yield variation</div>
+                <div className="db-topbar-legend">
+                  <span className="db-leg">
+                    <span className="db-leg-gradient blue" />
+                  </span>
+                  <span className="db-topbar-legend-label">Low</span>
+                  <span className="db-topbar-legend-label">High</span>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="db-topbar-actions">
             {!authReady ? null : currentUser ? (
               <>
                 <span style={{ fontSize: 12, color: '#475569' }}>{currentUser.name || currentUser.email}</span>

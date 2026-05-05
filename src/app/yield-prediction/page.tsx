@@ -62,6 +62,14 @@ function HBar({ data, labelKey, valueKey, color = '#2563eb', title }: {
           );
         })}
       </svg>
+      <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748b', marginTop: 8, flexWrap: 'wrap' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />Positive coefficient
+        </span>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />Negative coefficient
+        </span>
+      </div>
     </div>
   );
 }
@@ -338,6 +346,22 @@ function YieldPredictionContent() {
                         }}>{c}</button>
                       ))}
                     </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#64748b', marginBottom: 10, flexWrap: 'wrap' }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#16a34a', display: 'inline-block' }} />High
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#d97706', display: 'inline-block' }} />Medium
+                    </span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#dc2626', display: 'inline-block' }} />Low
+                    </span>
+                    {!data?.has_actual_yield && (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                        <span style={{ width: 9, height: 9, borderRadius: '50%', background: '#64748b', display: 'inline-block' }} />Unknown
+                      </span>
+                    )}
                   </div>
                   <DataTable rows={filteredPredictions} cols={['plot_id', 'genotype', 'Yield_Class', 'actual_yield', 'predicted_yield']} />
                 </div>

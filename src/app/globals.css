@@ -34,12 +34,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  height: 52px;
+  padding: 8px 20px;
+  min-height: 52px;
   flex-shrink: 0;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
   box-shadow: 0 8px 30px rgba(15, 23, 42, 0.06);
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .db-topbar-left {
@@ -65,6 +67,80 @@ body {
   font-size: 11px;
   color: #64748b;
   margin-top: 1px;
+}
+
+.db-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.db-topbar-legend-stack {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.db-topbar-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+}
+
+.db-topbar-feature-title {
+  font-family: 'Space Grotesk', 'IBM Plex Sans', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.2px;
+  line-height: 1.1;
+}
+
+.db-topbar-feature-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.db-topbar-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  color: #1f2937;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.db-topbar-legend {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.db-topbar-legend-label {
+  font-weight: 600;
+  color: #475569;
+}
+
+.db-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 12px;
+  flex-wrap: wrap;
 }
 
 /* Hovered-plot probe (in top bar) */
